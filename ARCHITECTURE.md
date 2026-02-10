@@ -187,6 +187,16 @@ export interface StateMachineConfig {
 }
 ```
 
+**Логика переходов:**
+
+1. Если `systemState.mode === 'manual'`: возвращается `BrainState.Manual`
+2. Если `systemState.mode === 'chill'`: возвращается `BrainState.Chill` (принудительный режим)
+3. Если `systemState.mode === 'party'`: возвращается `BrainState.Party` (принудительный режим)
+4. Если `systemState.mode === 'auto'`: автоматический выбор на основе `AudioMetrics.energy`:
+   - `energy < energyThresholdLow`: `Idle`
+   - `energyThresholdLow ≤ energy < energyThresholdHigh`: `Chill`
+   - `energy ≥ energyThresholdHigh`: `Party`
+
 **Методы:**
 
 ```typescript
@@ -231,7 +241,13 @@ export interface SceneDefinition {
   allowedStates: BrainState[];  // в каких состояниях доступна
   paletteId: string;
   baseIntensity: number;
-  effectDescriptors: any;
+  effectDescriptors: {
+    [groupId: string]: {
+      dimEffectType?: 'none' | 'chase' | 'pulse';
+      posEffectType?: 'none' | 'circle' | 'swing';
+      colorEffectType?: 'none' | 'cycle';
+    }
+  };
 }
 ```
 
@@ -636,6 +652,20 @@ SystemState update
         "2": 64,
         "3": 96
       }
+    },
+    {
+      "id": "wash7ch",
+      "name": "Generic RGBW Wash 7ch",
+      "manufacturer": "Generic",
+      "channels": [
+        { "name": "dim", "type": "dim", "channelIndex": 1 },
+        { "name": "red", "type": "color", "channelIndex": 2 },
+        { "name": "green", "type": "color", "channelIndex": 3 },
+        { "name": "blue", "type": "color", "channelIndex": 4 },
+        { "name": "white", "type": "color", "channelIndex": 5 },
+        { "name": "strobe", "type": "strobe", "channelIndex": 6 },
+        { "name": "colorMacro", "type": "other", "channelIndex": 7 }
+      ]
     }
   ]
 }
@@ -661,6 +691,22 @@ SystemState update
       "startAddress": 9,
       "profileId": "beam8ch",
       "groupId": "BEAMS"
+    },
+    {
+      "id": "wash1",
+      "name": "Wash 1",
+      "universe": 1,
+      "startAddress": 17,
+      "profileId": "wash7ch",
+      "groupId": "WASH"
+    },
+    {
+      "id": "wash2",
+      "name": "Wash 2",
+      "universe": 1,
+      "startAddress": 24,
+      "profileId": "wash7ch",
+      "groupId": "WASH"
     }
   ]
 }
@@ -672,7 +718,9 @@ SystemState update
 {
   "fixtures": [
     { "id": "beam1", "x": -0.5, "y": 0.0, "z": 2.5, "zone": "front" },
-    { "id": "beam2", "x": 0.5, "y": 0.0, "z": 2.5, "zone": "front" }
+    { "id": "beam2", "x": 0.5, "y": 0.0, "z": 2.5, "zone": "front" },
+    { "id": "wash1", "x": -1.0, "y": -1.0, "z": 3.0, "zone": "back" },
+    { "id": "wash2", "x": 1.0, "y": -1.0, "z": 3.0, "zone": "back" }
   ]
 }
 ```
@@ -692,6 +740,25 @@ SystemState update
         "BEAMS": {
           "dimEffectType": "none",
           "posEffectType": "none"
+        },
+        "WASH": {
+          "dimEffectType": "none"
+        }
+      }
+    },
+    {
+      "id": "ChillSoftMovement",
+      "name": "Chill Soft Movement",
+      "allowedStates": ["Chill"],
+      "paletteId": "cool",
+      "baseIntensity": 0.6,
+      "effectDescriptors": {
+        "BEAMS": {
+          "dimEffectType": "none",
+          "posEffectType": "circle"
+        },
+        "WASH": {
+          "dimEffectType": "pulse"
         }
       }
     },
@@ -705,6 +772,9 @@ SystemState update
         "BEAMS": {
           "dimEffectType": "pulse",
           "posEffectType": "circle"
+        },
+        "WASH": {
+          "dimEffectType": "chase"
         }
       }
     }
@@ -720,12 +790,20 @@ SystemState update
     {
       "id": "warm",
       "name": "Warm",
-      "colors": [0, 1]
+      "colors": [0, 1],
+      "description": "Тёплые цвета для спокойных сцен"
+    },
+    {
+      "id": "cool",
+      "name": "Cool",
+      "colors": [2, 3],
+      "description": "Холодные цвета"
     },
     {
       "id": "party",
       "name": "Party Mix",
-      "colors": [1, 2, 3]
+      "colors": [1, 2, 3],
+      "description": "Яркие цвета для энергичных сцен"
     }
   ]
 }
