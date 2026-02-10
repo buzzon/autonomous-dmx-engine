@@ -2316,8 +2316,385 @@ SystemState update
 - Art-Net по сети к DMX-нодам/приборам.
 - Web-панель доступна по HTTP (например, `http://localhost:8080`).
 
+
+## 8. Design decisions & Extension points
+
+Этот раздел фиксирует ключевые архитектурные решения, возможные подводные камни и официальные точки расширения, чтобы упростить дальнейшую разработку и эволюцию системы.
+
+### 8.1. Общий стиль архитектуры
+
+- **Модульность по слоям**:  
+  `Input Layer → Show Brain → Lighting Engine → Outputs`, с отдельным `Control/UI`.  
+- **Слабая связность**:  
+  Модули общаются только через интерфейсы (TypeScript типы), без прямого доступа к чужому внутреннему состоянию.  
+- **Data‑driven подход**:  
+  Всё, что возможно, описывается в JSON‑конфигах (fixtures, scenes, palettes, частично логика выбора сцен), код — это «движок», который интерпретирует конфигурации.
+
 ---
 
-**Версия:** 0.1  
-**Дата:** 2026-02-09  
-**Статус:** Живой документ, дополняется по ходу разработки.
+### 8.2. Фасады верхнего уровня
+
+Чтобы не «размазывать» логику по `main.ts`, вводится два фасада:
+
+1. **BrainFacade**  
+   Объединяет `StateMachine`, `SceneSelector`, `EffectEngine`:
+
+   ```typescript
+   interface BrainOutput {
+     brainState: BrainState;
+     sceneState: SceneState;
+     groupEffects: GroupEffectState[];
+   }
+
+   class BrainFacade {
+     constructor(
+       private stateMachine: StateMachine,
+       private sceneSelector: SceneSelector,
+       private effectEngine: EffectEngine,
+     ) {}
+
+     update(metrics: AudioMetrics, systemState: SystemState, now: number): BrainOutput {
+       const brainState = this.stateMachine.update(metrics, systemState);
+       const sceneState = this.sceneSelector.selectScene(brainState, metrics, /* history */ []);
+       const groupEffects = this.effectEngine.generateEffects(sceneState, metrics, now);
+       return { brainState, sceneState, groupEffects };
+     }
+   }
+   ```
+
+2. **LightingFacade**  
+   Объединяет `AttributeManager`, `MergeEngine`, `DMXRenderer`:
+
+   ```typescript
+   class LightingFacade {
+     constructor(
+       private attributes: AttributeManager,
+       private merge: MergeEngine,
+       private renderer: DMXRenderer,
+     ) {}
+
+     update(brainOutput: BrainOutput, systemState: SystemState): void {
+       for (const effect of brainOutput.groupEffects) {
+         this.attributes.applyGroupEffect(effect.groupId, effect);
+       }
+       const baseStates = this.attributes.getAll();
+       const effectStates = this.attributes.getEffects();
+       const finalStates = this.merge.merge(baseStates, effectStates, {
+         globalDim: systemState.globalIntensity,
+         blackout: systemState.blackout,
+       });
+       this.renderer.render(finalStates);
+     }
+   }
+   ```
+
+**Преимущества**:
+
+- `main.ts` остаётся тонким (оркестрация, а не бизнес‑логика).  
+- Легче тестировать `BrainFacade` и `LightingFacade` отдельно (unit/integration tests).  
+- Меньше зависимостей в главном цикле, проще добавлять новые слои (Vision, Sensors).
+
+---
+
+### 8.3. Расширение входных метрик
+
+Сейчас:
+
+- вход для мозга — `AudioMetrics` (energy, beat, bpm, mood).
+
+Для гибкости вводится общий тип контекста:
+
+```typescript
+interface VisionMetrics {
+  occupancy: number;   // 0..1
+  motionLevel: number; // 0..1
+  // ...
+}
+
+interface SensorMetrics {
+  [key: string]: number | boolean | string;
+}
+
+interface RuntimeMetrics {
+  audio: AudioMetrics;
+  vision?: VisionMetrics;
+  sensors?: SensorMetrics;
+  timestamp: number;
+}
+```
+
+- `StateMachine`, `SceneSelector`, `EffectEngine` в перспективе принимают `RuntimeMetrics`, но в MVP могут использовать только `audio`.  
+- Это позволяет позже добавить Vision/Sensor‑модули без изменения интерфейсов Brain‑слоя.
+
+---
+
+### 8.4. Эффекты как плагины (effect registry)
+
+Чтобы не переписывать типы при добавлении новых эффектов, предлагается унифицированное представление:
+
+```typescript
+interface EffectDescriptor {
+  type: string;                    // 'dim/chase', 'pos/circle', 'color/cycle', ...
+  params: Record<string, any>;     // произвольные параметры
+}
+
+interface GroupEffectDescriptor {
+  groupId: string;
+  effects: EffectDescriptor[];
+}
+```
+
+В `scenes.json`:
+
+```json
+{
+  "id": "PartyBeams",
+  "effectDescriptors": {
+    "BEAMS": [
+      { "type": "dim/pulse", "params": { "depth": 1.0, "beatSync": true } },
+      { "type": "pos/circle", "params": { "size": 0.7, "speedMultiplier": 1.5 } }
+    ]
+  }
+}
+```
+
+В коде (`src/brain/effectEngine.ts`):
+
+```typescript
+type EffectHandler = (
+  params: any,
+  context: { t: number; metrics: RuntimeMetrics; fixtureIds: string[] }
+) => Partial<FixtureState>[];
+
+const effectRegistry: Record<string, EffectHandler> = {
+  'dim/pulse': applyDimPulse,
+  'dim/chase': applyDimChase,
+  'pos/circle': applyPosCircle,
+  // добавляются новые по мере развития
+};
+
+class EffectEngine {
+  generateEffects(sceneState: SceneState, metrics: RuntimeMetrics, now: number): GroupEffectState[] {
+    const result: GroupEffectState[] = [];
+
+    for (const [groupId, descriptors] of Object.entries(sceneState.effectDescriptors)) {
+      const fixtureIds = getPatchManager().getFixturesByGroup(groupId).map(f => f.id);
+      const effects: Partial<FixtureState>[] = [];
+
+      for (const desc of descriptors) {
+        const handler = effectRegistry[desc.type];
+        if (handler) {
+          const handlerContext = { t: now, metrics, fixtureIds };
+          effects.push(...handler(desc.params, handlerContext));
+        }
+      }
+
+      result.push({
+        groupId,
+        dimEffect: /* ... */,
+        posEffect: /* ... */
+      });
+    }
+
+    return result;
+  }
+}
+```
+
+**Преимущества**:
+
+- Добавление нового эффекта = новая функция + регистрация в `effectRegistry`.  
+- JSON описывает комбинации эффектов и их параметры без изменения типов.  
+- Легко добавлять параметры эффектов на лету (через конфиг или UI).
+
+---
+
+### 8.5. Расширение выходов (outputs)
+
+Сейчас:
+
+- выход — только `DMXRenderer → Art-Net`.
+
+Для гибкости вводится интерфейс выходного канала:
+
+```typescript
+interface OutputSink {
+  id: string;
+  send(frame: UniverseFrame): void;
+}
+```
+
+- `DMXRenderer` становится одной реализацией `OutputSink`.  
+- Позже можно добавить:
+  - `VisualizerOutput` (WebSocket/OSC для 3D визуализатора),  
+  - `LoggerOutput` (запись DMX в файл для отладки),  
+  - `DebugOutput` (рисование уровней в web‑UI).
+
+`LightingFacade` может получать список `OutputSink[]`:
+
+```typescript
+class LightingFacade {
+  constructor(
+    private attributes: AttributeManager,
+    private merge: MergeEngine,
+    private outputs: OutputSink[],
+  ) {}
+
+  update(brainOutput: BrainOutput, systemState: SystemState): void {
+    // ... merge logic ...
+    const universeFrames = this.buildUniverseFrames(finalStates);
+    for (const frame of universeFrames) {
+      for (const output of this.outputs) {
+        output.send(frame);
+      }
+    }
+  }
+}
+```
+
+---
+
+### 8.6. Конфиги и гибкость (hot reload)
+
+Чтобы облегчить настройку без перекомпиляции:
+
+- Все ключевые настройки (пороги энергии, связи mood→scene, параметры эффектов, палитры) хранятся в JSON.  
+- Вводится `ConfigManager`:
+
+```typescript
+class ConfigManager {
+  loadAll(): Promise<void>;
+  getScenes(): SceneDefinition[];
+  getProfiles(): FixtureProfile[];
+  getPatch(): FixtureInstance[];
+  getPalettes(): PaletteDefinition[];
+  getStateThresholds(): { low: number; high: number };
+  // ...
+
+  // Позже:
+  watchAndReload(callback: () => void): void;
+}
+```
+
+- Позже можно добавить:
+  - CLI/API команду `POST /reload-configs`, чтобы перезагружать сцены и стили без рестарта процесса.  
+  - в dev‑режиме — watch‑режим (перезагрузка конфигов при изменении файлов).
+  - валидацию конфигов (JSON Schema) при загрузке.
+
+---
+
+### 8.7. Разделение «быстрого» и «медленного» тиков
+
+Для стабильности и предсказуемой производительности рекомендуется разделить работу:
+
+- **Fast tick** (например, каждые 40 мс, 25 FPS):
+  - `AudioAnalyzer.processFrame` (RMS, энергия, beat detection)  
+  - `StateMachine.update` (простая логика на основе energy)  
+  - `EffectEngine.generateEffects` (только лёгкая математика: синусы, фазы)  
+  - `LightingFacade.update` → merge + DMX render  
+  - Send Art‑Net UDP  
+
+- **Slow tick** (каждые 500–1000 мс):
+  - Пересчёт `mood` по долгой истории энергии и beat‑плотности  
+  - `SceneSelector.selectScene` (смена сцены не нужна 25 раз/сек)  
+  - Статистика/логирование  
+  - (позже) Vision анализ, обновление контекста  
+  - (позже) hot reload конфигов по запросу  
+
+**Реализация**:
+
+```typescript
+// в src/main.ts или Engine.ts
+const fastTickInterval = 40;     // ms
+const slowTickInterval = 500;    // ms
+
+setInterval(() => fastTick(), fastTickInterval);
+setInterval(() => slowTick(), slowTickInterval);
+```
+
+**Преимущества**:
+
+- Уменьшается риск лагов и случайных «фризов» из‑за тяжёлой логики.  
+- Easy mode: если slow tick пропустит/задержится, fast tick всё ещё будет отправлять DMX.  
+- Предсказуемая нагрузка на CPU.
+
+---
+
+### 8.8. Ограничения и не‑цели
+
+Важно явно зафиксировать, чтобы не пытаться впихнуть всё:
+
+- Система **не пытается** быть полноценной консолью уровня grandMA:  
+  - нет глубокой трекинг‑логики для множественных executors,  
+  - нет полного HTP/LTP приоритета (используется простое merge на основе слоёв),  
+  - нет полного fixture‑editor GUI.  
+
+- Главный фокус:
+  - хорошая реакция на живую музыку и простые контекстные сигналы,  
+  - чистая, модульная архитектура, позволяющая добавлять эффекты/стили/источники без ломки.  
+  - достаточно простой для быстрого développ'а, достаточно гибкий для расширения.  
+
+- Всё сложное (ML для выбора сцен, глубокий vision‑анализ, синхронизация с внешними консолями) рассматривается как **верхний слой**, который будет подключаться позже, используя уже определённые интерфейсы.
+
+- **Не гарантируется**: абсолютная точность BPM при сложной/полиритмичной музыке; 100% точность beat detection; предсказуемость всех computations за фиксированное время (зависит от нагрузки на систему).
+
+---
+
+### 8.9. Тестирование и разработка
+
+#### 8.9.1. Mock Runtime для разработки Brain
+
+Для разработки и отладки Show Brain без живого аудио и DMX:
+
+- Создать утилиту, которая:
+  - читает заранее записанный JSON с массивом `AudioMetrics` (фрейм за фреймом),
+  - прогоняет через `BrainFacade` и `SceneSelector`,
+  - выводит результаты (какие сцены и эффекты выбираются) в консоль/CSV/JSON.
+
+- Это позволяет:
+  - разрабатывать и тестировать логику выбора сцен офлайн,
+  - сравнивать поведение при разных конфигурациях `scenes.json`,
+  - не зависеть от живого DMX при разработке brain‑части.
+
+#### 8.9.2. Unit + Integration Tests
+
+- **Unit**: каждый модуль (AudioAnalyzer, StateMachine, EffectEngine) тестируется с mock'ами.  
+- **Integration**: `BrainFacade` + `LightingFacade` тестируются с реальными данными (mock audio metrics + mock patch).  
+- **E2E**: (опционально) запуск полного цикла с mock Art‑Net receiver'ом.
+
+---
+
+### 8.10. Roadmap разработки (рекомендуемый порядок)
+
+1. **Phase 1: Audio Analyzer + простейший Brain**
+   - Реализовать `AudioAnalyzer` согласно DESIGN.md (energy, beat, BPM, mood).
+   - Реализовать `StateMachine` с простыми порогами (Idle/Chill/Party).
+   - Реализовать `SceneSelector` и `EffectEngine` с 2–3 базовыми сценами и 1–2 эффектами.
+   - Тест: mock audio → проверить переходы состояний.
+
+2. **Phase 2: Lighting Engine + DMX output**
+   - Реализовать `PatchManager`, `AttributeManager`, `MergeEngine`.
+   - Реализовать `DMXRenderer` с Art‑Net output.
+   - Тест: `LightingFacade` на простом patche (4–6 приборов).
+
+3. **Phase 3: Web UI + Control API**
+   - Простая web‑панель (режимы, intensity, blackout).
+   - REST API для команд.
+   - WebSocket для real‑time метрик.
+
+4. **Phase 4: Refinement**
+   - Добавить больше сцен и эффектов (через конфиги).
+   - Улучшить Audio Analyzer (лучший beat detection, более плавный BPM).
+   - Оптимизация производительности (fast tick vs slow tick).
+
+5. **Phase 5+: Extensions**
+   - Vision Analyzer (камера).
+   - ML для Scene Selector.
+   - Визуальный рендер (OSC output, WebGL визуализация).
+   - Integration с другими системами.
+
+---
+
+**Версия:** 0.2  
+**Дата:** 2026-02-10  
+**Статус:** Живой документ, регулярно обновляется с изменениями архитектуры.
