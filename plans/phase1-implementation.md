@@ -1,7 +1,7 @@
-# Phase 1 Implementation Plan - Базовый каркас
+# Phase 1 Implementation Plan - Базовый каркас (Обновлённый)
 
 ## Обзор
-Цель Phase 1: Создать работающий прототип с минимальной функциональностью, включая фасадные модули, базовые утилиты и mock runtime для тестирования.
+Цель Phase 1: Создать работающий прототип с минимальной функциональностью, включая фасадные модули, базовые утилиты, mock runtime для тестирования и скелетные реализации для расширяемости.
 
 ## Сроки: 2-3 недели
 
@@ -9,7 +9,7 @@
 
 ### 1. Структура проекта и фасадные модули
 
-#### 1.1. Создание директорий и файлов
+#### 1.1. Создание директорий и файлов (расширенная структура)
 ```
 src/
 ├── engine/           # Главный фасад и циклы
@@ -18,19 +18,49 @@ src/
 │   ├── fastLoop.ts
 │   ├── slowLoop.ts
 │   └── types.ts
-├── brain/
+├── audio/            # Audio Analyzer
+│   ├── analyzer.ts
+│   ├── types.ts
+│   └── utils.ts
+├── brain/            # Show Brain
 │   ├── facade.ts     # BrainFacade
+│   ├── stateMachine.ts
+│   ├── sceneSelector.ts
+│   ├── effects/      # Система эффектов
+│   │   ├── registry.ts
+│   │   ├── handlers/ # Обработчики эффектов
+│   │   └── types.ts
 │   └── types.ts
-├── lighting/
+├── lighting/         # Lighting Engine
 │   ├── facade.ts     # LightingFacade
+│   ├── patch.ts
+│   ├── fixtures.ts
+│   ├── attributes.ts
+│   ├── merge.ts
+│   ├── renderer.ts
 │   └── types.ts
-└── utils/
+├── control/          # Control & UI
+│   ├── api.ts
+│   └── types.ts
+├── metrics/          # Система метрик (расширение)
+│   ├── sources/
+│   ├── manager.ts
+│   └── types.ts
+├── outputs/          # Выходные каналы (расширение)
+│   ├── sinks/
+│   ├── manager.ts
+│   └── types.ts
+├── plugins/          # Plugin система (расширение)
+│   ├── manager.ts
+│   ├── types.ts
+│   └── builtin/
+└── utils/            # Утилиты
     ├── logger.ts
     ├── config.ts
     └── math.ts
 ```
 
-#### 1.2. Engine фасад
+#### 1.2. Engine фасад (обновлённый согласно ARCHITECTURE.md)
 **Файл:** `src/engine/engine.ts`
 ```typescript
 // Основной интерфейс Engine
@@ -42,8 +72,10 @@ interface EngineConfig {
 
 class Engine {
   constructor(
+    private audioAnalyzer: AudioAnalyzer,
     private brainFacade: BrainFacade,
     private lightingFacade: LightingFacade,
+    private controlAPI: ControlAPI,
     private config: EngineConfig
   ) {}
 
@@ -54,38 +86,61 @@ class Engine {
   }
 
   private fastTick(): void {
-    // Mock audio data для Phase 1
-    const mockAudioMetrics = this.generateMockAudioMetrics();
+    const startTime = performance.now();
+    
+    // Mock audio data для Phase 1 (временное решение)
+    const mockAudioFrame = this.generateMockAudioFrame();
+    const audioMetrics = this.audioAnalyzer.processFrame(mockAudioFrame, Date.now());
+    
+    // Сбор всех метрик (расширяемая структура)
+    const runtimeMetrics: RuntimeMetrics = {
+      audio: audioMetrics,
+      timestamp: Date.now()
+    };
     
     // Brain processing
-    const brainOutput = this.brainFacade.update(mockAudioMetrics);
+    const brainOutput = this.brainFacade.update(runtimeMetrics);
     
     // Lighting processing
     const lightingOutput = this.lightingFacade.update(brainOutput);
     
     // Mock DMX output (логирование)
     this.logDMXOutput(lightingOutput);
+    
+    // Мониторинг производительности
+    const processingTime = performance.now() - startTime;
+    if (processingTime > 20) { // 20ms для 50 FPS
+      console.warn(`Fast loop exceeded time budget: ${processingTime}ms`);
+    }
   }
 
   private slowTick(): void {
     // Долгосрочные обновления
     this.brainFacade.updateSlow(Date.now());
+    
+    // Hot-reload конфигов (если включено)
+    if (this.config.enableHotReload) {
+      this.brainFacade.reloadConfigs();
+      this.lightingFacade.reloadConfigs();
+    }
   }
 }
 ```
 
-#### 1.3. BrainFacade
+#### 1.3. BrainFacade (обновлённый согласно ARCHITECTURE.md)
 **Файл:** `src/brain/facade.ts`
 ```typescript
 interface BrainFacadeConfig {
   stateMachine: StateMachineConfig;
   sceneSelector: SceneSelectorConfig;
+  effectEngine: EffectEngineConfig;
 }
 
 class BrainFacade {
   constructor(
     private stateMachine: StateMachine,
     private sceneSelector: SceneSelector,
+    private effectEngine: EffectEngine,  // Обязательная зависимость
     private config: BrainFacadeConfig
   ) {}
 
@@ -93,21 +148,40 @@ class BrainFacade {
     // 1. Обновление State Machine
     const brainState = this.stateMachine.update(metrics.audio, metrics);
     
-    // 2. Выбор сцены
+    // 2. Выбор сцены (data-driven подход)
     const sceneState = this.sceneSelector.selectScene(
       brainState,
       metrics,
       this.state.history.scenes
     );
     
-    // 3. Генерация эффектов (упрощённая для Phase 1)
-    const groupEffects = this.generateSimpleEffects(sceneState, metrics);
+    // 3. Генерация эффектов через EffectEngine
+    const groupEffects = this.effectEngine.generateEffects(
+      sceneState,
+      metrics,
+      metrics.timestamp
+    );
+    
+    // 4. Обновление истории
+    this.updateHistory(brainState, sceneState.sceneId, metrics.timestamp);
     
     return {
       brainState,
       sceneState,
       groupEffects
     };
+  }
+
+  updateSlow(now: number): void {
+    // Долгосрочные обновления
+    this.stateMachine.updateSlow(now);
+    this.sceneSelector.updateSlow(now);
+  }
+
+  reloadConfigs(): void {
+    // Перезагрузка конфигураций сцен, правил и эффектов
+    this.sceneSelector.reloadScenes();
+    this.effectEngine.reloadEffects();
   }
 }
 ```
@@ -206,70 +280,135 @@ export function mapRange(
 }
 ```
 
-### 3. Mock runtime для тестирования
+### 3. Mock runtime для тестирования с расширяемой архитектурой
 
-#### 3.1. Scripts для офлайн-тестирования
+#### 3.1. Scripts для офлайн-тестирования (обновлённый)
 **Файл:** `scripts/mock-runtime.ts`
 ```typescript
 import { Engine } from '../src/engine/engine';
+import { AudioAnalyzer } from '../src/audio/analyzer';
 import { BrainFacade } from '../src/brain/facade';
 import { LightingFacade } from '../src/lighting/facade';
+import { ControlAPI } from '../src/control/api';
+import { MetricSourceManager } from '../src/metrics/manager';
+import { OutputSinkManager } from '../src/outputs/manager';
+import { PluginManager } from '../src/plugins/manager';
 
 async function runMockRuntime() {
-  console.log('Starting mock runtime...');
+  console.log('Starting mock runtime with expandable architecture...');
   
-  // Загрузка конфигов
+  // Загрузка data-driven конфигов
   const configLoader = new ConfigLoader();
   const configs = await configLoader.loadAll();
   
-  // Инициализация фасадов
+  // Инициализация менеджеров расширяемости
+  const metricSourceManager = new MetricSourceManager();
+  const outputSinkManager = new OutputSinkManager();
+  const pluginManager = new PluginManager();
+  
+  // Инициализация AudioAnalyzer (mock версия для Phase 1)
+  const audioAnalyzer = new AudioAnalyzer(configs.audio);
+  
+  // Инициализация фасадов с data-driven зависимостями
   const brainFacade = new BrainFacade(/* ... */);
   const lightingFacade = new LightingFacade(/* ... */);
   
-  // Создание Engine
-  const engine = new Engine(brainFacade, lightingFacade, {
-    fastTickInterval: 40,
-    slowTickInterval: 500,
-    enableHotReload: false
-  });
+  // Инициализация ControlAPI
+  const controlAPI = new ControlAPI(8080);
+  
+  // Создание Engine с полным набором зависимостей
+  const engine = new Engine(
+    audioAnalyzer,
+    brainFacade,
+    lightingFacade,
+    controlAPI,
+    {
+      fastTickInterval: 40,
+      slowTickInterval: 500,
+      enableHotReload: true
+    }
+  );
   
   // Запуск
   engine.start();
   
-  console.log('Mock runtime started. Press Ctrl+C to stop.');
+  console.log('Mock runtime started with expandable architecture. Press Ctrl+C to stop.');
 }
 
 runMockRuntime().catch(console.error);
 ```
 
-#### 3.2. Тестовые данные
-**Файл:** `test-data/mock-audio-metrics.json`
+#### 3.2. Тестовые данные в формате RuntimeMetrics
+**Файл:** `test-data/mock-runtime-metrics.json`
 ```json
 {
   "frames": [
     {
       "timestamp": 0,
-      "energy": 0.1,
-      "beat": false,
-      "bpm": null,
-      "mood": "calm"
+      "audio": {
+        "energy": 0.1,
+        "beat": false,
+        "bpm": null,
+        "mood": "calm"
+      },
+      "vision": null,
+      "sensors": null
     },
     {
       "timestamp": 40,
-      "energy": 0.15,
-      "beat": false,
-      "bpm": null,
-      "mood": "calm"
+      "audio": {
+        "energy": 0.15,
+        "beat": false,
+        "bpm": null,
+        "mood": "calm"
+      },
+      "vision": null,
+      "sensors": null
     },
-    // ... 100+ фреймов для тестирования
+    // ... 100+ фреймов в расширяемом формате
   ]
 }
 ```
 
-### 4. Конфигурационные файлы (обновление)
+#### 3.3. Скелетные реализации для расширяемости
+**Файл:** `src/metrics/manager.ts` (пример)
+```typescript
+export class MetricSourceManager {
+  private sources: Map<string, MetricSource> = new Map();
+  
+  registerSource(source: MetricSource): void {
+    this.sources.set(source.name, source);
+  }
+  
+  async collectAllMetrics(): Promise<RuntimeMetrics> {
+    const metrics: RuntimeMetrics = {
+      audio: null as any, // будет заполнено AudioAnalyzer
+      timestamp: Date.now()
+    };
+    
+    // В Phase 1 собираем только audio метрики
+    return metrics;
+  }
+}
+```
 
-#### 4.1. Упрощённые конфиги для Phase 1
-**Файл:** `config/scenes-simple.json`
+**Файл:** `src/plugins/manager.ts` (скелетная реализация)
+```typescript
+export class PluginManager {
+  private plugins: Map<string, Plugin> = new Map();
+  
+  async loadPlugin(pluginPath: string): Promise<void> {
+    console.log(`Plugin loading would be implemented in Phase 4: ${pluginPath}`);
+  }
+  
+  // Скелетные методы для Phase 1
+}
+```
+
+### 4. Конфигурационные файлы (обновление согласно data-driven архитектуре)
+
+#### 4.1. Основные конфигурационные файлы для Phase 1
+**Файл:** `config/scenes.json` (data-driven формат)
 ```json
 {
   "scenes": [
@@ -279,12 +418,18 @@ runMockRuntime().catch(console.error);
       "allowedStates": ["Idle"],
       "paletteId": "warm",
       "baseIntensity": 0.3,
-      "effectDescriptors": {
-        "BEAMS": {
-          "dimEffectType": "none",
-          "posEffectType": "none"
+      "effectDescriptors": [
+        {
+          "type": "dim/none",
+          "groupId": "BEAMS",
+          "params": {}
+        },
+        {
+          "type": "pos/none",
+          "groupId": "BEAMS",
+          "params": {}
         }
-      }
+      ]
     },
     {
       "id": "chill-pulse",
@@ -292,14 +437,96 @@ runMockRuntime().catch(console.error);
       "allowedStates": ["Chill"],
       "paletteId": "cool",
       "baseIntensity": 0.6,
-      "effectDescriptors": {
-        "BEAMS": {
-          "dimEffectType": "pulse",
-          "posEffectType": "none"
+      "effectDescriptors": [
+        {
+          "type": "dim/pulse",
+          "groupId": "BEAMS",
+          "params": {
+            "speed": 1.0,
+            "depth": 0.5
+          }
         }
-      }
+      ]
     }
   ]
+}
+```
+
+#### 4.2. Новые data-driven конфигурационные файлы (скелетные)
+**Файл:** `config/scenes-rules.json` (правила выбора сцен)
+```json
+{
+  "rules": [
+    {
+      "sceneId": "idle-static",
+      "conditions": {
+        "brainState": ["Idle"],
+        "energyMax": 0.3
+      },
+      "weight": 1.0,
+      "cooldown": 30000
+    },
+    {
+      "sceneId": "chill-pulse",
+      "conditions": {
+        "brainState": ["Chill"],
+        "energyMin": 0.3,
+        "energyMax": 0.7
+      },
+      "weight": 1.0
+    }
+  ]
+}
+```
+
+**Файл:** `config/effects.json` (регистр эффектов)
+```json
+{
+  "handlers": {
+    "dim/none": {
+      "description": "No dimming effect",
+      "defaultParams": {}
+    },
+    "dim/pulse": {
+      "description": "Pulsing dim effect",
+      "defaultParams": {
+        "speed": 1.0,
+        "depth": 0.5,
+        "phase": 0
+      }
+    },
+    "pos/none": {
+      "description": "No position effect",
+      "defaultParams": {}
+    }
+  }
+}
+```
+
+**Файл:** `config/plugins.json` (конфигурация плагинов)
+```json
+{
+  "enabled": [
+    "core-audio",
+    "core-dmx"
+  ],
+  
+  "plugins": {
+    "core-audio": {
+      "type": "builtin",
+      "config": {
+        "sampleRate": 44100,
+        "frameSize": 1024
+      }
+    },
+    "core-dmx": {
+      "type": "builtin",
+      "config": {
+        "artNetHost": "127.0.0.1",
+        "artNetPort": 6454
+      }
+    }
+  }
 }
 ```
 
@@ -338,72 +565,84 @@ describe('Mock Runtime', () => {
 });
 ```
 
-## Порядок выполнения
+## Порядок выполнения (обновлённый)
 
-### Неделя 1: Подготовка инфраструктуры
-1. **День 1-2:** Создание структуры проекта и базовых утилит
-   - Создать директории `src/engine/`, `src/brain/`, `src/lighting/`, `src/utils/`
+### Неделя 1: Подготовка инфраструктуры и базовых интерфейсов
+1. **День 1-2:** Создание расширенной структуры проекта
+   - Создать все директории согласно ARCHITECTURE.md: `src/engine/`, `src/audio/`, `src/brain/`, `src/lighting/`, `src/control/`, `src/metrics/`, `src/outputs/`, `src/plugins/`, `src/utils/`
    - Реализовать `Logger` и `ConfigLoader`
-   - Настроить TypeScript конфигурацию
+   - Настроить TypeScript конфигурацию и пути импорта
 
-2. **День 3-4:** Интерфейсы и типы
-   - Определить все TypeScript интерфейсы из ARCHITECTURE.md
-   - Создать файлы `types.ts` для каждого модуля
-   - Настроить импорты и зависимости
+2. **День 3-4:** Интерфейсы и типы (data-driven подход)
+   - Определить все TypeScript интерфейсы из ARCHITECTURE.md с акцентом на data-driven архитектуру
+   - Создать файлы `types.ts` для каждого модуля, включая интерфейсы для плагинов, метрик и выходов
+   - Реализовать базовые интерфейсы: `MetricSource`, `OutputSink`, `Plugin`, `EffectDescriptor`, `SceneRule`
 
-3. **День 5:** Mock runtime
-   - Создать `scripts/mock-runtime.ts`
-   - Подготовить тестовые данные
-   - Настроить запуск через npm scripts
+3. **День 5:** Конфигурационные файлы и mock runtime
+   - Создать все конфигурационные файлы в data-driven формате: `scenes.json`, `scenes-rules.json`, `effects.json`, `plugins.json`
+   - Создать `scripts/mock-runtime.ts` с поддержкой расширяемой архитектуры
+   - Подготовить тестовые данные в формате совместимом с `RuntimeMetrics`
 
-### Неделя 2: Реализация фасадов
-1. **День 1-2:** BrainFacade
+### Неделя 2: Реализация фасадов и ядра системы
+1. **День 1-2:** BrainFacade с EffectEngine
    - Реализовать StateMachine (упрощённую версию)
-   - Реализовать SceneSelector (базовую логику)
-   - Интегрировать в BrainFacade
+   - Реализовать SceneSelector с data-driven правилами
+   - Реализовать EffectEngine с регистром обработчиков эффектов
+   - Интегрировать все компоненты в BrainFacade
 
-2. **День 3-4:** LightingFacade
-   - Реализовать PatchManager (загрузку конфигов)
-   - Реализовать AttributeManager (управление атрибутами)
+2. **День 3-4:** LightingFacade и управление состоянием
+   - Реализовать PatchManager (загрузку конфигов fixtures, patch, layout)
+   - Реализовать AttributeManager с поддержкой data-driven эффектов
+   - Реализовать MergeEngine для объединения слоёв
    - Интегрировать в LightingFacade
 
-3. **День 5:** Engine и интеграция
-   - Реализовать Engine с двумя циклами
-   - Интегрировать все фасады
-   - Настроить логирование и мониторинг
+3. **День 5:** Engine и система расширяемости
+   - Реализовать Engine с двумя циклами и мониторингом производительности
+   - Создать скелетные реализации менеджеров: `MetricSourceManager`, `OutputSinkManager`, `PluginManager`
+   - Интегрировать ControlAPI (базовую версию)
+   - Настроить логирование и мониторинг производительности
 
-### Неделя 3: Тестирование и отладка
-1. **День 1-2:** Unit тесты
-   - Написать тесты для ключевых модулей
-   - Настроить Jest конфигурацию
+### Неделя 3: Тестирование, интеграция и отладка
+1. **День 1-2:** Unit тесты для data-driven компонентов
+   - Написать тесты для SceneSelector с правилами
+   - Написать тесты для EffectEngine и регистра эффектов
+   - Написать тесты для фасадов с mock зависимостями
+   - Настроить Jest конфигурацию для TypeScript
 
-2. **День 3-4:** Интеграционные тесты
-   - Протестировать end-to-end flow
-   - Отладить взаимодействие между модулями
+2. **День 3-4:** Интеграционные тесты и end-to-end проверка
+   - Протестировать полный data-driven flow: конфиги → правила → эффекты → DMX
+   - Протестировать hot-reload конфигураций
+   - Отладить взаимодействие между всеми модулями
+   - Проверить производительность fast loop с мониторингом
 
-3. **День 5:** Документация и финализация
-   - Обновить README с инструкциями по запуску
-   - Создать документацию по API Phase 1
-   - Подготовить демонстрацию работы системы
+3. **День 5:** Документация, финализация и подготовка к Phase 2
+   - Обновить README с инструкциями по запуску и конфигурации
+   - Создать документацию по data-driven API Phase 1
+   - Подготовить демонстрацию работы системы с mock данными
+   - Создать план миграции существующих конфигов в data-driven формат
 
-## Критерии успеха Phase 1
+## Критерии успеха Phase 1 (обновлённые)
 
-- [ ] Проект компилируется без ошибок TypeScript
-- [ ] Mock runtime запускается и работает без падений
-- [ ] BrainFacade корректно обрабатывает mock audio данные
-- [ ] LightingFacade генерирует DMX данные (в логах)
-- [ ] Engine управляет fast/slow циклами
-- [ ] Все unit тесты проходят
-- [ ] Интеграционный тест проходит end-to-end
-- [ ] Логирование работает на разных уровнях
-- [ ] Конфиги загружаются корректно
+- [ ] Проект компилируется без ошибок TypeScript с расширенной структурой
+- [ ] Mock runtime запускается и работает без падений с data-driven конфигами
+- [ ] BrainFacade корректно обрабатывает mock audio данные через EffectEngine
+- [ ] SceneSelector работает с data-driven правилами из scenes-rules.json
+- [ ] LightingFacade генерирует DMX данные на основе data-driven эффектов
+- [ ] Engine управляет fast/slow циклами с мониторингом производительности
+- [ ] Все unit тесты проходят для data-driven компонентов
+- [ ] Интеграционный тест проходит end-to-end с полным data-driven flow
+- [ ] Логирование работает на разных уровнях с производительностью fast loop
+- [ ] Конфиги в data-driven формате загружаются и валидируются корректно
+- [ ] Скелетные реализации менеджеров расширяемости созданы (MetricSourceManager, OutputSinkManager, PluginManager)
+- [ ] ControlAPI интегрирован в Engine конструктор
 
 ## Следующие шаги после Phase 1
 
-1. **Phase 2:** Реализация Audio Analyzer с реальной обработкой аудио
-2. **Phase 3:** Реализация DMX Renderer с Art-Net output
-3. **Phase 4:** Web UI и Control API
-4. **Phase 5:** Data-driven эффекты и правила сцен
+1. **Phase 2:** Реализация Audio Analyzer с реальной обработкой аудио и интеграцией как MetricSource
+2. **Phase 3:** Реализация DMX Renderer с Art-Net output как OutputSink
+3. **Phase 4:** Web UI и полноценный Control API с WebSocket
+4. **Phase 5:** Расширение data-driven системы: больше эффектов, сложные правила, plugin экосистема
+5. **Phase 6:** Оптимизация производительности: object pooling, worker threads, предварительные вычисления
 
 ## Риски и mitigation
 
