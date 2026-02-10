@@ -1,0 +1,39 @@
+{
+  "profiles": [
+    {
+      "id": "beam8ch",
+      "name": "Generic Beam 8ch",
+      "manufacturer": "Generic",
+      "channels": [
+        { "name": "dim", "type": "dim", "channelIndex": 1 },
+        { "name": "strobe", "type": "strobe", "channelIndex": 2 },
+        { "name": "colorIndex", "type": "color", "channelIndex": 3 },
+        { "name": "goboIndex", "type": "other", "channelIndex": 4 },
+        { "name": "pan", "type": "position", "channelIndex": 5 },
+        { "name": "tilt", "type": "position", "channelIndex": 6 },
+        { "name": "panFine", "type": "position", "channelIndex": 7 },
+        { "name": "tiltFine", "type": "position", "channelIndex": 8 }
+      ],
+      "colorMap": {
+        "0": 0,
+        "1": 32,
+        "2": 64,
+        "3": 96
+      }
+    },
+    {
+      "id": "wash7ch",
+      "name": "Generic RGBW Wash 7ch",
+      "manufacturer": "Generic",
+      "channels": [
+        { "name": "dim", "type": "dim", "channelIndex": 1 },
+        { "name": "red", "type": "color", "channelIndex": 2 },
+        { "name": "green", "type": "color", "channelIndex": 3 },
+        { "name": "blue", "type": "color", "channelIndex": 4 },
+        { "name": "white", "type": "color", "channelIndex": 5 },
+        { "name": "strobe", "type": "strobe", "channelIndex": 6 },
+        { "name": "colorMacro", "type": "other", "channelIndex": 7 }
+      ]
+    }
+  ]
+}

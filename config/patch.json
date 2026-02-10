@@ -1,0 +1,36 @@
+{
+  "fixtures": [
+    {
+      "id": "beam1",
+      "name": "Beam 1",
+      "universe": 1,
+      "startAddress": 1,
+      "profileId": "beam8ch",
+      "groupId": "BEAMS"
+    },
+    {
+      "id": "beam2",
+      "name": "Beam 2",
+      "universe": 1,
+      "startAddress": 9,
+      "profileId": "beam8ch",
+      "groupId": "BEAMS"
+    },
+    {
+      "id": "wash1",
+      "name": "Wash 1",
+      "universe": 1,
+      "startAddress": 17,
+      "profileId": "wash7ch",
+      "groupId": "WASH"
+    },
+    {
+      "id": "wash2",
+      "name": "Wash 2",
+      "universe": 1,
+      "startAddress": 24,
+      "profileId": "wash7ch",
+      "groupId": "WASH"
+    }
+  ]
+}

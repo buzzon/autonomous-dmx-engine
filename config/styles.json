@@ -1,0 +1,22 @@
+{
+  "palettes": [
+    {
+      "id": "warm",
+      "name": "Warm",
+      "colors": [0, 1],
+      "description": "Тёплые цвета для спокойных сцен"
+    },
+    {
+      "id": "cool",
+      "name": "Cool",
+      "colors": [2, 3],
+      "description": "Холодные цвета"
+    },
+    {
+      "id": "party",
+      "name": "Party Mix",
+      "colors": [1, 2, 3],
+      "description": "Яркие цвета для энергичных сцен"
+    }
+  ]
+}

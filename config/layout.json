@@ -1,0 +1,8 @@
+{
+  "fixtures": [
+    { "id": "beam1", "x": -0.5, "y": 0.0, "z": 2.5, "zone": "front" },
+    { "id": "beam2", "x": 0.5, "y": 0.0, "z": 2.5, "zone": "front" },
+    { "id": "wash1", "x": -1.0, "y": -1.0, "z": 3.0, "zone": "back" },
+    { "id": "wash2", "x": 1.0, "y": -1.0, "z": 3.0, "zone": "back" }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "autonomous-dmx-engine",
+  "version": "0.1.0",
+  "description": "Autonomous audio-driven DMX/Art-Net lighting engine",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/main.ts",
+    "start": "node dist/main.js",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts"
+  },
+  "keywords": [
+    "dmx",
+    "artnet",
+    "lighting",
+    "audio-reactive",
+    "autonomous"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0"
+  },
+  "dependencies": {
+    "artnet": "^1.4.0",
+    "express": "^4.18.0",
+    "socket.io": "^4.6.0"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "scenes": [
+    {
+      "id": "IdleWarmStatic",
+      "name": "Idle Warm Static",
+      "allowedStates": ["Idle"],
+      "paletteId": "warm",
+      "baseIntensity": 0.3,
+      "effectDescriptors": {
+        "BEAMS": {
+          "dimEffectType": "none",
+          "posEffectType": "none"
+        },
+        "WASH": {
+          "dimEffectType": "none"
+        }
+      }
+    },
+    {
+      "id": "ChillSoftMovement",
+      "name": "Chill Soft Movement",
+      "allowedStates": ["Chill"],
+      "paletteId": "cool",
+      "baseIntensity": 0.6,
+      "effectDescriptors": {
+        "BEAMS": {
+          "dimEffectType": "none",
+          "posEffectType": "circle"
+        },
+        "WASH": {
+          "dimEffectType": "pulse"
+        }
+      }
+    },
+    {
+      "id": "PartyBeams",
+      "name": "Party Beams",
+      "allowedStates": ["Party"],
+      "paletteId": "party",
+      "baseIntensity": 0.9,
+      "effectDescriptors": {
+        "BEAMS": {
+          "dimEffectType": "pulse",
+          "posEffectType": "circle"
+        },
+        "WASH": {
+          "dimEffectType": "chase"
+        }
+      }
+    }
+  ]
+}
