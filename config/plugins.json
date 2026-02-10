@@ -1,0 +1,139 @@
+{
+  "enabled": [
+    "core-audio",
+    "core-dmx",
+    "core-metrics",
+    "core-outputs",
+    "core-webui"
+  ],
+  
+  "plugins": {
+    "core-audio": {
+      "type": "builtin",
+      "config": {
+        "sampleRate": 44100,
+        "frameSize": 1024,
+        "hopSize": 512,
+        "beatThresholdCoeff": 1.5,
+        "minBeatInterval": 100,
+        "bpmSmoothingBeta": 0.1,
+        "energySmoothingAlpha": 0.2,
+        "moodUpdateInterval": 5000,
+        "historySize": 100,
+        "moodEnergyThresholdLow": 0.3,
+        "moodEnergyThresholdHigh": 0.7,
+        "moodBpmThresholdLow": 80,
+        "moodBpmThresholdHigh": 120
+      }
+    },
+    
+    "core-dmx": {
+      "type": "builtin",
+      "config": {
+        "protocol": "artnet",
+        "host": "127.0.0.1",
+        "port": 6454,
+        "universe": 1,
+        "refreshRate": 40,
+        "maxRetries": 3,
+        "failover": {
+          "enabled": false,
+          "secondaryHost": "127.0.0.1",
+          "secondaryPort": 6455
+        }
+      }
+    },
+    
+    "core-metrics": {
+      "type": "builtin",
+      "config": {
+        "defaultUpdateInterval": 1000,
+        "healthCheckInterval": 5000,
+        "maxRetries": 3,
+        "enabledSources": ["audio", "system"],
+        "exporters": [
+          {
+            "name": "console",
+            "enabled": true,
+            "interval": 5000,
+            "format": "json"
+          }
+        ]
+      }
+    },
+    
+    "core-outputs": {
+      "type": "builtin",
+      "config": {
+        "defaultPriority": 100,
+        "healthCheckInterval": 3000,
+        "failoverEnabled": true,
+        "enabledSinks": ["dmx", "console"],
+        "batchProcessing": {
+          "enabled": false,
+          "maxBatchSize": 100,
+          "maxBatchTime": 100
+        }
+      }
+    },
+    
+    "core-webui": {
+      "type": "builtin",
+      "config": {
+        "port": 8080,
+        "enableWebSocket": true,
+        "enableREST": true,
+        "corsOrigins": ["http://localhost:8080"],
+        "rateLimit": {
+          "windowMs": 60000,
+          "maxRequests": 100
+        },
+        "authentication": {
+          "enabled": false
+        },
+        "ui": {
+          "title": "Autonomous DMX Engine",
+          "theme": "dark",
+          "defaultView": "dashboard",
+          "enableLivePreview": true,
+          "updateInterval": 100
+        }
+      }
+    }
+  },
+  
+  "directories": {
+    "plugins": "./plugins",
+    "builtin": "./src/plugins/builtin",
+    "config": "./config/plugins"
+  },
+  
+  "settings": {
+    "autoLoad": true,
+    "hotReload": false,
+    "sandbox": false,
+    "maxLoadTime": 5000,
+    "healthCheckInterval": 10000,
+    "dependencyCheck": true,
+    "versionCheck": true
+  },
+  
+  "security": {
+    "sandbox": {
+      "enabled": false,
+      "memoryLimit": 100,
+      "timeout": 5000,
+      "allowedApis": ["logger", "config", "events"],
+      "blockedApis": ["fs", "net", "child_process"]
+    },
+    "signatureVerification": false,
+    "allowedOrigins": ["localhost", "127.0.0.1"]
+  },
+  
+  "logging": {
+    "level": "info",
+    "pluginLogs": true,
+    "performanceLogs": false,
+    "errorDetails": true
+  }
+}

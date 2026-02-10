@@ -1,0 +1,101 @@
+{
+  "rules": [
+    {
+      "sceneId": "IdleWarmStatic",
+      "conditions": {
+        "brainState": ["Idle"],
+        "energyMax": 0.3,
+        "mood": ["calm"]
+      },
+      "weight": 1.0,
+      "cooldown": 30000,
+      "minDuration": 10000,
+      "maxDuration": 60000,
+      "transitionTime": 2000
+    },
+    {
+      "sceneId": "ChillSoftMovement",
+      "conditions": {
+        "brainState": ["Chill"],
+        "energyMin": 0.3,
+        "energyMax": 0.7,
+        "mood": ["calm", "medium"],
+        "bpmMin": 80,
+        "bpmMax": 120
+      },
+      "weight": 1.0,
+      "cooldown": 20000,
+      "minDuration": 15000,
+      "maxDuration": 45000,
+      "transitionTime": 3000
+    },
+    {
+      "sceneId": "PartyBeams",
+      "conditions": {
+        "brainState": ["Party"],
+        "energyMin": 0.7,
+        "mood": ["medium", "hard"],
+        "bpmMin": 100,
+        "timeOfDay": {
+          "start": "20:00",
+          "end": "06:00"
+        },
+        "dayOfWeek": [4, 5, 6]
+      },
+      "weight": 1.5,
+      "cooldown": 15000,
+      "minDuration": 10000,
+      "maxDuration": 30000,
+      "transitionTime": 1000
+    },
+    {
+      "sceneId": "ChillSoftMovement",
+      "conditions": {
+        "brainState": ["Party"],
+        "energyMin": 0.5,
+        "energyMax": 0.7,
+        "mood": ["medium"],
+        "timeOfDay": {
+          "start": "06:00",
+          "end": "20:00"
+        }
+      },
+      "weight": 0.8,
+      "cooldown": 25000,
+      "minDuration": 20000,
+      "maxDuration": 40000,
+      "transitionTime": 4000
+    },
+    {
+      "sceneId": "IdleWarmStatic",
+      "conditions": {
+        "brainState": ["Chill"],
+        "energyMax": 0.4,
+        "mood": ["calm"],
+        "recentScenes": ["PartyBeams"]
+      },
+      "weight": 1.2,
+      "cooldown": 40000,
+      "minDuration": 20000,
+      "maxDuration": 80000,
+      "transitionTime": 5000
+    }
+  ],
+  
+  "defaults": {
+    "defaultSceneId": "IdleWarmStatic",
+    "historySize": 10,
+    "randomSelection": true,
+    "cooldownEnabled": true,
+    "transitionEnabled": true,
+    "minSceneDuration": 5000,
+    "maxSceneDuration": 120000
+  },
+  
+  "transitions": {
+    "defaultTransitionTime": 2000,
+    "transitionCurve": "easeInOut",
+    "allowInterruption": false,
+    "interruptionPenalty": 0.5
+  }
+}

@@ -21,7 +21,9 @@ export class AudioAnalyzer {
       mood: 'calm',
       moodHistory: [],
       lastUpdateTimestamp: 0,
-      lastMoodUpdate: 0
+      lastMoodUpdate: 0,
+      framesProcessed: 0,
+      averageProcessingTime: 0
     };
   }
 

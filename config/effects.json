@@ -1,0 +1,147 @@
+{
+  "handlers": {
+    "dim/none": {
+      "description": "No dimming effect",
+      "defaultParams": {},
+      "supportedGroups": ["BEAMS", "WASH", "SPOTS"],
+      "category": "dim"
+    },
+    "dim/pulse": {
+      "description": "Pulsing dim effect",
+      "defaultParams": {
+        "speed": 1.0,
+        "depth": 0.5,
+        "phase": 0,
+        "waveform": "sine"
+      },
+      "supportedGroups": ["BEAMS", "WASH", "SPOTS"],
+      "category": "dim"
+    },
+    "dim/chase": {
+      "description": "Chasing dim effect across fixtures",
+      "defaultParams": {
+        "speed": 1.5,
+        "waveCount": 3,
+        "direction": "forward",
+        "spread": 0.5
+      },
+      "supportedGroups": ["BEAMS", "WASH", "SPOTS"],
+      "category": "dim"
+    },
+    "pos/none": {
+      "description": "No position effect",
+      "defaultParams": {},
+      "supportedGroups": ["BEAMS", "SPOTS"],
+      "category": "position"
+    },
+    "pos/circle": {
+      "description": "Circular position movement",
+      "defaultParams": {
+        "speed": 0.5,
+        "radius": 0.3,
+        "centerX": 0,
+        "centerY": 0,
+        "direction": "clockwise"
+      },
+      "supportedGroups": ["BEAMS", "SPOTS"],
+      "category": "position"
+    },
+    "pos/swing": {
+      "description": "Pendulum swing movement",
+      "defaultParams": {
+        "speed": 0.8,
+        "amplitude": 0.4,
+        "centerPan": 0,
+        "centerTilt": 0,
+        "phase": 0
+      },
+      "supportedGroups": ["BEAMS", "SPOTS"],
+      "category": "position"
+    },
+    "color/none": {
+      "description": "No color effect",
+      "defaultParams": {},
+      "supportedGroups": ["BEAMS", "WASH"],
+      "category": "color"
+    },
+    "color/cycle": {
+      "description": "Cycle through colors",
+      "defaultParams": {
+        "speed": 0.2,
+        "colors": [1, 2, 3],
+        "direction": "forward",
+        "smooth": true
+      },
+      "supportedGroups": ["BEAMS", "WASH"],
+      "category": "color"
+    },
+    "color/gradient": {
+      "description": "Color gradient across fixtures",
+      "defaultParams": {
+        "colors": [1, 2, 3],
+        "spread": 0.5,
+        "direction": "horizontal"
+      },
+      "supportedGroups": ["WASH"],
+      "category": "color"
+    },
+    "strobe/none": {
+      "description": "No strobe effect",
+      "defaultParams": {},
+      "supportedGroups": ["BEAMS", "WASH", "SPOTS"],
+      "category": "strobe"
+    },
+    "strobe/pulse": {
+      "description": "Pulsing strobe effect",
+      "defaultParams": {
+        "speed": 2.0,
+        "dutyCycle": 0.3,
+        "intensity": 0.8
+      },
+      "supportedGroups": ["BEAMS", "WASH", "SPOTS"],
+      "category": "strobe"
+    }
+  },
+  
+  "categories": {
+    "dim": {
+      "description": "Dimming/intensity effects",
+      "defaultPriority": 10
+    },
+    "position": {
+      "description": "Position/movement effects",
+      "defaultPriority": 20
+    },
+    "color": {
+      "description": "Color effects",
+      "defaultPriority": 30
+    },
+    "strobe": {
+      "description": "Strobe/shutter effects",
+      "defaultPriority": 40
+    }
+  },
+  
+  "groups": {
+    "BEAMS": {
+      "description": "Beam fixtures with position control",
+      "supportedCategories": ["dim", "position", "color", "strobe"]
+    },
+    "WASH": {
+      "description": "Wash fixtures with color mixing",
+      "supportedCategories": ["dim", "color", "strobe"]
+    },
+    "SPOTS": {
+      "description": "Spot fixtures",
+      "supportedCategories": ["dim", "position", "strobe"]
+    }
+  },
+  
+  "defaults": {
+    "defaultEffect": "dim/none",
+    "maxEffectsPerGroup": 3,
+    "effectPriorityOrder": ["strobe", "color", "position", "dim"],
+    "paramValidation": true,
+    "fallbackToDefault": true
+  }
+}

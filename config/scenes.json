@@ -6,15 +6,23 @@
       "allowedStates": ["Idle"],
       "paletteId": "warm",
       "baseIntensity": 0.3,
-      "effectDescriptors": {
-        "BEAMS": {
-          "dimEffectType": "none",
-          "posEffectType": "none"
+      "effectDescriptors": [
+        {
+          "type": "dim/none",
+          "groupId": "BEAMS",
+          "params": {}
         },
-        "WASH": {
-          "dimEffectType": "none"
+        {
+          "type": "pos/none",
+          "groupId": "BEAMS", 
+          "params": {}
+        },
+        {
+          "type": "dim/none",
+          "groupId": "WASH",
+          "params": {}
         }
-      }
+      ]
     },
     {
       "id": "ChillSoftMovement",
@@ -22,15 +30,32 @@
       "allowedStates": ["Chill"],
       "paletteId": "cool",
       "baseIntensity": 0.6,
-      "effectDescriptors": {
-        "BEAMS": {
-          "dimEffectType": "none",
-          "posEffectType": "circle"
+      "effectDescriptors": [
+        {
+          "type": "dim/none",
+          "groupId": "BEAMS",
+          "params": {}
         },
-        "WASH": {
-          "dimEffectType": "pulse"
+        {
+          "type": "pos/circle",
+          "groupId": "BEAMS",
+          "params": {
+            "speed": 0.5,
+            "radius": 0.3,
+            "centerX": 0,
+            "centerY": 0
+          }
+        },
+        {
+          "type": "dim/pulse",
+          "groupId": "WASH",
+          "params": {
+            "speed": 1.0,
+            "depth": 0.5,
+            "phase": 0
+          }
         }
-      }
+      ]
     },
     {
       "id": "PartyBeams",
@@ -38,15 +63,36 @@
       "allowedStates": ["Party"],
       "paletteId": "party",
       "baseIntensity": 0.9,
-      "effectDescriptors": {
-        "BEAMS": {
-          "dimEffectType": "pulse",
-          "posEffectType": "circle"
+      "effectDescriptors": [
+        {
+          "type": "dim/pulse",
+          "groupId": "BEAMS",
+          "params": {
+            "speed": 2.0,
+            "depth": 0.8,
+            "phase": 0
+          }
         },
-        "WASH": {
-          "dimEffectType": "chase"
+        {
+          "type": "pos/circle",
+          "groupId": "BEAMS",
+          "params": {
+            "speed": 1.0,
+            "radius": 0.5,
+            "centerX": 0,
+            "centerY": 0
+          }
+        },
+        {
+          "type": "dim/chase",
+          "groupId": "WASH",
+          "params": {
+            "speed": 1.5,
+            "waveCount": 3,
+            "direction": "forward"
+          }
         }
-      }
+      ]
     }
   ]
 }
