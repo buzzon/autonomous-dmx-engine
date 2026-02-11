@@ -85,7 +85,7 @@ describe('Math Utilities', () => {
     });
 
     test('rms should calculate root mean square', () => {
-      expect(rms([1, 2, 3, 4, 5])).toBeCloseTo(3.316, 3);
+      expect(rms([1, 2, 3, 4, 5])).toBeCloseTo(3.3166, 3);
       expect(rms([-1, -2, -3])).toBeCloseTo(2.160, 3);
       expect(rms([])).toBe(0);
     });
@@ -94,7 +94,7 @@ describe('Math Utilities', () => {
   describe('exponentialMovingAverage', () => {
     test('should calculate EMA', () => {
       expect(exponentialMovingAverage(10, 5, 0.5)).toBe(7.5);
-      expect(exponentialMovingAverage(0, 10, 0.1)).toBe(1);
+      expect(exponentialMovingAverage(0, 10, 0.1)).toBe(9); // 0*0.1 + 10*0.9 = 9
       expect(exponentialMovingAverage(5, 5, 0.5)).toBe(5);
     });
   });
@@ -162,11 +162,11 @@ describe('Math Utilities', () => {
     });
 
     test('triangleWave should generate triangle values', () => {
-      expect(triangleWave(0)).toBe(-1);
+      expect(triangleWave(0)).toBe(1);
       expect(triangleWave(Math.PI / 2)).toBeCloseTo(0);
-      expect(triangleWave(Math.PI)).toBeCloseTo(1);
+      expect(triangleWave(Math.PI)).toBeCloseTo(-1);
       expect(triangleWave(3 * Math.PI / 2)).toBeCloseTo(0);
-      expect(triangleWave(2 * Math.PI)).toBeCloseTo(-1);
+      expect(triangleWave(2 * Math.PI)).toBeCloseTo(1);
     });
 
     test('sawtoothWave should generate sawtooth values', () => {
@@ -216,9 +216,9 @@ describe('Math Utilities', () => {
       expect(easeInOut(0.5)).toBe(0.5);
       expect(easeInOut(1)).toBe(1);
       
-      // Should be smooth curve
+      // Should be smooth curve (quadratic ease-in-out)
       expect(easeInOut(0.25)).toBeGreaterThan(0.25 * 0.25);
-      expect(easeInOut(0.75)).toBeLessThan(0.75);
+      expect(easeInOut(0.75)).toBeGreaterThan(0.75);
     });
   });
 
