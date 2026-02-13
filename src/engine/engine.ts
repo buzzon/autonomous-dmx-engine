@@ -72,8 +72,8 @@ export class Engine {
     this.state.isRunning = true;
     this.state.startTime = Date.now();
 
-    // Запуск Control API
-    this.controlAPI.start();
+    // Control API is started externally in main.ts
+    // this.controlAPI.start();
 
     // Запуск быстрого цикла
     this.fastTickInterval = setInterval(

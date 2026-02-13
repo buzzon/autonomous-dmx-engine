@@ -42,6 +42,7 @@
     "jsonwebtoken": "^9.0.3",
     "node-microphone": "^0.1.6",
     "node-web-audio-api": "^1.0.7",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "zod": "^4.3.6"
   }
 }

@@ -4,9 +4,9 @@
  * Реализует data-driven подход с конфигурационными файлами
  */
 
-import { defaultLogger } from '../utils/logger';
-import { ConfigLoader } from '../utils/config';
-import { DMXRenderer } from './renderer';
+import { defaultLogger } from "../utils/logger";
+import { ConfigLoader } from "../utils/config";
+import { DMXRenderer } from "./renderer";
 import {
   LightingFacadeConfig,
   FixtureProfile,
@@ -20,24 +20,24 @@ import {
   FixtureGroup,
   ColorPalette,
   StyleDefinition,
-  RenderStatistics
-} from './types';
-import { BrainOutput } from '../engine/types';
-import { LightingOutput } from '../engine/types';
-import { GroupEffectState } from '../brain/types';
+  RenderStatistics,
+} from "./types";
+import { BrainOutput } from "../engine/types";
+import { LightingOutput } from "../engine/types";
+import { GroupEffectState } from "../brain/types";
 
 /**
  * Упрощённый Patch Manager для Phase 1
  */
 class PatchManager {
-  private logger = defaultLogger.child({ module: 'PatchManager' });
+  private logger = defaultLogger.child({ module: "PatchManager" });
   private fixtures: Map<string, FixtureInstance> = new Map();
   private profiles: Map<string, FixtureProfile> = new Map();
   private groups: Map<string, string[]> = new Map(); // groupId -> fixtureIds
   private universes: Map<number, string[]> = new Map(); // universe -> fixtureIds
 
   constructor() {
-    this.logger.info('PatchManager initialized');
+    this.logger.info("PatchManager initialized");
   }
 
   loadPatch(patchConfig: PatchConfig): void {
@@ -46,15 +46,15 @@ class PatchManager {
     this.universes.clear();
 
     // Загрузка фикстур
-    patchConfig.fixtures.forEach(fixture => {
+    patchConfig.fixtures.forEach((fixture) => {
       this.fixtures.set(fixture.id, fixture);
-      
+
       // Добавление в группу
       if (!this.groups.has(fixture.groupId)) {
         this.groups.set(fixture.groupId, []);
       }
       this.groups.get(fixture.groupId)!.push(fixture.id);
-      
+
       // Добавление в universe
       if (!this.universes.has(fixture.universe)) {
         this.universes.set(fixture.universe, []);
@@ -62,19 +62,19 @@ class PatchManager {
       this.universes.get(fixture.universe)!.push(fixture.id);
     });
 
-    this.logger.info('Patch loaded', {
+    this.logger.info("Patch loaded", {
       fixtureCount: this.fixtures.size,
       groupCount: this.groups.size,
-      universeCount: this.universes.size
+      universeCount: this.universes.size,
     });
   }
 
   loadProfiles(profiles: FixtureProfile[]): void {
     this.profiles.clear();
-    profiles.forEach(profile => {
+    profiles.forEach((profile) => {
       this.profiles.set(profile.id, profile);
     });
-    this.logger.info('Fixture profiles loaded', { count: profiles.length });
+    this.logger.info("Fixture profiles loaded", { count: profiles.length });
   }
 
   getFixture(id: string): FixtureInstance | undefined {
@@ -114,34 +114,43 @@ class PatchManager {
  * Упрощённый Attribute Manager для Phase 1
  */
 class AttributeManager {
-  private logger = defaultLogger.child({ module: 'AttributeManager' });
+  private logger = defaultLogger.child({ module: "AttributeManager" });
   private fixtureStates: Map<string, FixtureState> = new Map();
   private defaultAttributes: Partial<FixtureState>;
   private mergeRules: MergeRules;
 
-  constructor(defaultAttributes: Partial<FixtureState>, mergeRules: MergeRules) {
+  constructor(
+    defaultAttributes: Partial<FixtureState>,
+    mergeRules: MergeRules,
+  ) {
     this.defaultAttributes = defaultAttributes;
     this.mergeRules = mergeRules;
-    this.logger.info('AttributeManager initialized', { defaultAttributes, mergeRules });
+    this.logger.info("AttributeManager initialized", {
+      defaultAttributes,
+      mergeRules,
+    });
   }
 
   initializeFixtures(fixtureIds: string[]): void {
-    fixtureIds.forEach(id => {
+    fixtureIds.forEach((id) => {
       this.fixtureStates.set(id, this.createDefaultFixtureState(id));
     });
-    this.logger.info('Fixtures initialized', { count: fixtureIds.length });
+    this.logger.info("Fixtures initialized", { count: fixtureIds.length });
   }
 
   applyGroupEffect(groupId: string, effect: GroupEffectState): void {
     // В Phase 1 упрощённая логика
     // В будущих фазах будет реальное применение эффектов к каждому фикстуру в группе
-    this.logger.debug('Group effect applied', { groupId, effectType: 'simplified' });
+    this.logger.debug("Group effect applied", {
+      groupId,
+      effectType: "simplified",
+    });
   }
 
   applyFixtureEffect(fixtureId: string, effect: Partial<FixtureState>): void {
     const currentState = this.fixtureStates.get(fixtureId);
     if (!currentState) {
-      this.logger.warn('Fixture not found', { fixtureId });
+      this.logger.warn("Fixture not found", { fixtureId });
       return;
     }
 
@@ -149,7 +158,7 @@ class AttributeManager {
     const newState: FixtureState = {
       ...currentState,
       ...effect,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     this.fixtureStates.set(fixtureId, newState);
@@ -166,14 +175,14 @@ class AttributeManager {
   updateFixtureState(fixtureId: string, state: Partial<FixtureState>): void {
     const currentState = this.fixtureStates.get(fixtureId);
     if (!currentState) {
-      this.logger.warn('Fixture not found for update', { fixtureId });
+      this.logger.warn("Fixture not found for update", { fixtureId });
       return;
     }
 
     const newState: FixtureState = {
       ...currentState,
       ...state,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     this.fixtureStates.set(fixtureId, newState);
@@ -181,9 +190,12 @@ class AttributeManager {
 
   resetAll(): void {
     this.fixtureStates.forEach((state, fixtureId) => {
-      this.fixtureStates.set(fixtureId, this.createDefaultFixtureState(fixtureId));
+      this.fixtureStates.set(
+        fixtureId,
+        this.createDefaultFixtureState(fixtureId),
+      );
     });
-    this.logger.info('All fixture states reset to defaults');
+    this.logger.info("All fixture states reset to defaults");
   }
 
   private createDefaultFixtureState(fixtureId: string): FixtureState {
@@ -201,17 +213,16 @@ class AttributeManager {
       frost: this.defaultAttributes.frost || 0,
       prism: this.defaultAttributes.prism || 0,
       shutter: this.defaultAttributes.shutter || 0,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
   }
 }
-
 
 /**
  * LightingFacade - главный фасад модуля Lighting
  */
 export class LightingFacade {
-  private logger = defaultLogger.child({ module: 'LightingFacade' });
+  private logger = defaultLogger.child({ module: "LightingFacade" });
   private patchManager: PatchManager;
   private attributeManager: AttributeManager;
   private dmxRenderer: DMXRenderer;
@@ -222,12 +233,12 @@ export class LightingFacade {
   constructor(config: LightingFacadeConfig) {
     this.config = config;
     this.configLoader = new ConfigLoader();
-    
+
     // Инициализация компонентов
     this.patchManager = new PatchManager();
     this.attributeManager = new AttributeManager(
       config.defaultAttributes,
-      config.mergeRules
+      config.mergeRules,
     );
     this.dmxRenderer = new DMXRenderer({
       applyGammaCorrection: true,
@@ -235,10 +246,10 @@ export class LightingFacade {
       smoothTransitions: true,
       transitionTime: 100,
       limitRateOfChange: true,
-      maxChangePerFrame: 0.1
+      maxChangePerFrame: 0.1,
     });
-    
-    this.logger.info('LightingFacade initialized', { config });
+
+    this.logger.info("LightingFacade initialized", { config });
   }
 
   /**
@@ -246,29 +257,28 @@ export class LightingFacade {
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
-      this.logger.warn('LightingFacade is already initialized');
+      this.logger.warn("LightingFacade is already initialized");
       return;
     }
-    
+
     try {
-      this.logger.info('Initializing LightingFacade...');
-      
+      this.logger.info("Initializing LightingFacade...");
+
       // В Phase 1 создаём mock данные
       // В будущих фазах будет загрузка из конфигурационных файлов
       await this.loadMockConfiguration();
-      
+
       // Инициализация состояний фикстур
       const allFixtures = this.patchManager.getAllFixtures();
-      const fixtureIds = allFixtures.map(f => f.id);
+      const fixtureIds = allFixtures.map((f) => f.id);
       this.attributeManager.initializeFixtures(fixtureIds);
-      
+
       this.isInitialized = true;
-      this.logger.info('LightingFacade initialized successfully', {
-        fixtureCount: fixtureIds.length
+      this.logger.info("LightingFacade initialized successfully", {
+        fixtureCount: fixtureIds.length,
       });
-      
     } catch (error) {
-      this.logger.error('Error initializing LightingFacade', { error });
+      this.logger.error("Error initializing LightingFacade", { error });
       throw error;
     }
   }
@@ -278,41 +288,44 @@ export class LightingFacade {
    */
   update(brainOutput: BrainOutput): LightingOutput {
     if (!this.isInitialized) {
-      this.logger.error('LightingFacade not initialized');
+      this.logger.error("LightingFacade not initialized");
       return this.createEmptyOutput();
     }
-    
+
     const startTime = performance.now();
-    
+
     try {
       // 1. Применение эффектов к атрибутам
       for (const effect of brainOutput.groupEffects) {
         this.attributeManager.applyGroupEffect(effect.groupId, effect);
       }
-      
+
       // 2. Получение финальных состояний
       const finalStates = this.attributeManager.getAll();
-      
+
       // 3. Рендеринг DMX с использованием нового DMX Renderer
       const universeFrames = this.config.enableDMXOutput
-        ? this.dmxRenderer.renderToDMX(finalStates, this.patchManager, this.patchManager.getAllProfiles())
+        ? this.dmxRenderer.renderToDMX(
+            finalStates,
+            this.patchManager,
+            this.patchManager.getAllProfiles(),
+          )
         : [];
-      
+
       const processingTime = performance.now() - startTime;
-      this.logger.debug('Lighting processing complete', {
+      this.logger.debug("Lighting processing complete", {
         effectCount: brainOutput.groupEffects.length,
         fixtureCount: finalStates.size,
         universeCount: universeFrames.length,
-        processingTime: processingTime.toFixed(2)
+        processingTime: processingTime.toFixed(2),
       });
-      
+
       return {
         universeFrames,
-        fixtureStates: finalStates
+        fixtureStates: finalStates,
       };
-      
     } catch (error) {
-      this.logger.error('Error in lighting processing', { error });
+      this.logger.error("Error in lighting processing", { error });
       return this.createEmptyOutput();
     }
   }
@@ -321,15 +334,14 @@ export class LightingFacade {
    * Перезагрузка конфигураций
    */
   async reloadConfigs(): Promise<void> {
-    this.logger.info('Reloading lighting configurations...');
-    
+    this.logger.info("Reloading lighting configurations...");
+
     try {
       // В Phase 1 просто логируем
       // В будущих фазах будет реальная перезагрузка из файлов
-      this.logger.info('Config reload would be implemented in Phase 2');
-      
+      this.logger.debug("Config reload would be implemented in Phase 2");
     } catch (error) {
-      this.logger.error('Error reloading configs', { error });
+      this.logger.error("Error reloading configs", { error });
     }
   }
 
@@ -352,7 +364,7 @@ export class LightingFacade {
    */
   updateFixtureState(fixtureId: string, state: Partial<FixtureState>): void {
     this.attributeManager.updateFixtureState(fixtureId, state);
-    this.logger.info('Fixture state manually updated', { fixtureId, state });
+    this.logger.info("Fixture state manually updated", { fixtureId, state });
   }
 
   /**
@@ -360,7 +372,7 @@ export class LightingFacade {
    */
   resetAllStates(): void {
     this.attributeManager.resetAll();
-    this.logger.info('All fixture states reset to defaults');
+    this.logger.info("All fixture states reset to defaults");
   }
 
   /**
@@ -377,82 +389,82 @@ export class LightingFacade {
     // Mock профили фикстур
     const mockProfiles: FixtureProfile[] = [
       {
-        id: 'beam-300',
-        name: 'Beam 300',
-        manufacturer: 'Generic',
+        id: "beam-300",
+        name: "Beam 300",
+        manufacturer: "Generic",
         channels: [
-          { name: 'dim', type: 'dim', channelIndex: 1 },
-          { name: 'pan', type: 'position', channelIndex: 2 },
-          { name: 'tilt', type: 'position', channelIndex: 3 },
-          { name: 'color', type: 'color', channelIndex: 4 }
+          { name: "dim", type: "dim", channelIndex: 1 },
+          { name: "pan", type: "position", channelIndex: 2 },
+          { name: "tilt", type: "position", channelIndex: 3 },
+          { name: "color", type: "color", channelIndex: 4 },
         ],
-        capabilities: ['dim', 'color', 'position']
+        capabilities: ["dim", "color", "position"],
       },
       {
-        id: 'wash-200',
-        name: 'Wash 200',
-        manufacturer: 'Generic',
+        id: "wash-200",
+        name: "Wash 200",
+        manufacturer: "Generic",
         channels: [
-          { name: 'dim', type: 'dim', channelIndex: 1 },
-          { name: 'color', type: 'color', channelIndex: 2 }
+          { name: "dim", type: "dim", channelIndex: 1 },
+          { name: "color", type: "color", channelIndex: 2 },
         ],
-        capabilities: ['dim', 'color']
-      }
+        capabilities: ["dim", "color"],
+      },
     ];
-    
+
     // Mock patch конфигурация
     // Используем числовые ID для совместимости с типом PatchConfig
     const mockPatch: PatchConfig = {
       fixtures: [
         {
-          id: '1', // Числовой ID как строка
-          name: 'Beam 1',
+          id: "1", // Числовой ID как строка
+          name: "Beam 1",
           universe: 1,
           startAddress: 1,
-          profileId: 'beam-300',
-          groupId: 'BEAMS'
+          profileId: "beam-300",
+          groupId: "BEAMS",
         },
         {
-          id: '2',
-          name: 'Beam 2',
+          id: "2",
+          name: "Beam 2",
           universe: 1,
           startAddress: 5,
-          profileId: 'beam-300',
-          groupId: 'BEAMS'
+          profileId: "beam-300",
+          groupId: "BEAMS",
         },
         {
-          id: '3',
-          name: 'Wash 1',
+          id: "3",
+          name: "Wash 1",
           universe: 1,
           startAddress: 9,
-          profileId: 'wash-200',
-          groupId: 'WASHES'
+          profileId: "wash-200",
+          groupId: "WASHES",
         },
         {
-          id: '4',
-          name: 'Wash 2',
+          id: "4",
+          name: "Wash 2",
           universe: 1,
           startAddress: 11,
-          profileId: 'wash-200',
-          groupId: 'WASHES'
-        }
+          profileId: "wash-200",
+          groupId: "WASHES",
+        },
       ],
       groups: {
-        'BEAMS': ['1', '2'],
-        'WASHES': ['3', '4']
+        BEAMS: ["1", "2"],
+        WASHES: ["3", "4"],
       },
       universes: {
-        1: [1, 2, 3, 4] // Числовые ID фикстур
-      }
+        1: [1, 2, 3, 4], // Числовые ID фикстур
+      },
     };
-    
+
     // Загрузка профилей и patch
     this.patchManager.loadProfiles(mockProfiles);
     this.patchManager.loadPatch(mockPatch);
-    
-    this.logger.info('Mock configuration loaded', {
+
+    this.logger.info("Mock configuration loaded", {
       profileCount: mockProfiles.length,
-      fixtureCount: mockPatch.fixtures.length
+      fixtureCount: mockPatch.fixtures.length,
     });
   }
 
@@ -462,7 +474,7 @@ export class LightingFacade {
   private createEmptyOutput(): LightingOutput {
     return {
       universeFrames: [],
-      fixtureStates: new Map()
+      fixtureStates: new Map(),
     };
   }
 }

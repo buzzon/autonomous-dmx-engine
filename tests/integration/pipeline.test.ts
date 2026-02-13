@@ -22,6 +22,14 @@ describe("Integration Pipeline: Audio -> Brain -> Lighting", () => {
     (controlAPI.broadcastToAll as jest.Mock).mockImplementation(() => {});
 
     // 2. Setup Real Components (with some config tweaks for testing)
+
+    // Hack to prevent worker spawning during tests
+    // Using prototype spy might be tricky if constructor calls it
+    // We can just spy on the private method if we cast to any or use prototype before new
+    jest
+      .spyOn(AudioAnalyzer.prototype as any, "initializeWorker")
+      .mockImplementation(() => {});
+
     audioAnalyzer = new AudioAnalyzer({
       sampleRate: 44100,
       frameSize: 1024,
@@ -103,7 +111,7 @@ describe("Integration Pipeline: Audio -> Brain -> Lighting", () => {
     );
   });
 
-  test("Pipeline should propagate high energy to lighting changes", () => {
+  test("Pipeline should propagate high energy to lighting changes", async () => {
     // 1. Mock Audio Output to simulate HIGH ENERGY (Party Mode)
     // We spy on processFrame to return specific metrics
     const highEnergyMetrics: AudioMetrics = {
@@ -121,11 +129,18 @@ describe("Integration Pipeline: Audio -> Brain -> Lighting", () => {
       .spyOn(audioAnalyzer, "processFrame")
       .mockReturnValue(highEnergyMetrics);
 
-    // 2. Trigger Fast Tick
-    // Accessing private method for testing
+    // 3. Trigger fast tick
+    // In real implementation, this would trigger audio processing
+    // For test with Worker, we need to wait for worker to reply
     (engine as any).fastTick();
 
-    // 3. Verify Brain State Transition (Idle -> Chill -> Party requires multiple ticks usually,
+    // Wait for worker to process (since AudioAnalyzer is now async)
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Trigger another tick to pick up the metrics
+    (engine as any).fastTick();
+
+    // 4. Verify Brain State Transition (Idle -> Chill -> Party requires multiple ticks usually,
     // or logic depends on thresholds).
     // Let's check if metrics were passed.
     expect(audioAnalyzer.processFrame).toHaveBeenCalled();

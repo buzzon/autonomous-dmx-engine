@@ -146,9 +146,14 @@ class DMXControlUI {
         this.updateConnectionStatus('connecting', 'Connecting...');
         
         try {
-            this.socket = new WebSocket(wsUrl);
+            // Use socket.io client
+            // io is available globally from script tag
+            this.socket = io(window.location.origin, {
+                path: '/ws',
+                transports: ['websocket', 'polling']
+            });
             
-            this.socket.onopen = () => {
+            this.socket.on('connect', () => {
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
                 this.updateConnectionStatus('connected', 'Connected');
@@ -156,32 +161,45 @@ class DMXControlUI {
                 
                 // Send authentication (simulated for Phase 2)
                 this.sendAuthentication();
-            };
+            });
             
-            this.socket.onmessage = (event) => {
-                this.handleMessage(event.data);
-            };
-            
-            this.socket.onclose = (event) => {
-                this.isConnected = false;
-                this.connectionId = null;
-                this.updateConnectionStatus('disconnected', 'Disconnected');
-                this.log(`WebSocket connection closed: ${event.reason || 'No reason provided'}`, 'error');
+            this.socket.on('message', (event) => {
+                // Socket.io event 'message' usually contains data directly
+                // But our server might emit specific events like 'loopUpdate'
+                // We need to check how server sends data.
+                // In engine.ts: broadcastToAll('loopUpdate', ...)
+                // In websocket.ts: socket.emit('stateUpdate', ...)
                 
-                // Attempt reconnection
-                if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                    this.reconnectAttempts++;
-                    const delay = Math.min(1000 * this.reconnectAttempts, 10000);
-                    this.log(`Attempting to reconnect in ${delay/1000} seconds... (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`, 'info');
-                    
-                    setTimeout(() => this.connect(), delay);
-                }
-            };
+                // We should listen to specific events or catch-all if possible?
+                // For now, let's assume we handle specific events separately
+            });
+
+            this.socket.on('loopUpdate', (data) => {
+                 this.handleMessage({ type: 'loopUpdate', data });
+            });
+
+            this.socket.on('stateUpdate', (data) => {
+                 this.handleMessage({ type: 'stateUpdate', data });
+            });
             
-            this.socket.onerror = (error) => {
-                this.log(`WebSocket error: ${error.message || 'Unknown error'}`, 'error');
-                this.updateConnectionStatus('disconnected', 'Connection Error');
-            };
+            // Handle generic messages if any
+            this.socket.on('message', (data) => {
+                 // Try to handle as JSON if it matches our structure
+                 if (data && data.type) {
+                     this.handleMessage(data);
+                 }
+            });
+            
+            this.socket.on('disconnect', () => {
+                this.isConnected = false;
+                this.updateConnectionStatus('disconnected', 'Disconnected');
+            });
+
+            this.socket.on('connect_error', (error) => {
+                this.isConnected = false;
+                this.updateConnectionStatus('error', 'Connection Error');
+                this.log(`WebSocket error: ${error.message}`, 'error');
+            });
             
         } catch (error) {
             this.log(`Failed to create WebSocket: ${error.message}`, 'error');
@@ -205,6 +223,57 @@ class DMXControlUI {
     /**
      * Send authentication to server
      */
+    handleMessage(data) {
+        try {
+            // Socket.io sends objects directly
+            const message = typeof data === 'string' ? JSON.parse(data) : data;
+            
+            if (!message) return;
+
+            // Update last update timestamp
+            const timeStr = new Date().toLocaleTimeString();
+            if (this.lastUpdate) this.lastUpdate.textContent = timeStr;
+            
+            // Handle different message types
+            // Normalized message structure: { type, data } or just mixed
+            // If message has 'type' at root, use it.
+            
+            const msgType = message.type;
+            const msgData = message.data || message; // Fallback if data is not wrapped
+
+            if (msgType === 'initialState') {
+                this.handleInitialState(msgData);
+            } else if (msgType === 'stateUpdate' || msgType === 'loopUpdate') {
+                // loopUpdate might contain more than just systemState (e.g. audio, lighting)
+                // For now, treat it as state update if it has systemState
+                if (msgData.systemState) {
+                    this.handleStateUpdate(msgData);
+                } else if (msgType === 'loopUpdate') {
+                     // If loop update has complex structure, we might need specific handler
+                     // For now, assume it might trigger UI updates directly if we had them
+                     // or just update audio metrics if present
+                     if (msgData.metrics && msgData.metrics.audio) {
+                         // We could update audio metrics from server here!
+                         // But updateAudioMetrics currently simulates it.
+                     }
+                }
+            } else if (msgType === 'authenticated') {
+                this.handleAuthenticated(msgData);
+            } else if (msgType === 'error') {
+                this.log(`Server Error: ${msgData.message || 'Unknown'}`, 'error');
+            } else {
+                // Try to infer or just log
+                // this.log(`Received: ${JSON.stringify(message)}`, 'debug');
+            }
+            
+        } catch (error) {
+            this.log(`Error processing message: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Send authentication to server
+     */
     sendAuthentication() {
         if (!this.isConnected) return;
         
@@ -214,7 +283,7 @@ class DMXControlUI {
             timestamp: Date.now()
         };
         
-        this.socket.send(JSON.stringify(authMessage));
+        this.socket.emit('authenticate', authMessage); // Use emit for specific event or send
         this.log('Authentication sent.', 'info');
     }
     
@@ -237,7 +306,7 @@ class DMXControlUI {
             }
         };
         
-        this.socket.send(JSON.stringify(command));
+        this.socket.emit('command', command);
         this.log(`Command sent: ${type}`, 'info');
     }
     
@@ -256,42 +325,10 @@ class DMXControlUI {
             timestamp: Date.now()
         };
         
-        this.socket.send(JSON.stringify(venueMessage));
+        this.socket.emit('command', venueMessage);
         this.log(`Venue switch requested: ${venueId}`, 'info');
     }
-    
-    /**
-     * Handle incoming WebSocket messages
-     */
-    handleMessage(data) {
-        try {
-            const message = JSON.parse(data);
-            
-            // Update last update timestamp
-            this.lastUpdate.textContent = new Date().toLocaleTimeString();
-            
-            // Handle different message types
-            if (message.type === 'initialState') {
-                this.handleInitialState(message.data);
-            } else if (message.type === 'stateUpdate') {
-                this.handleStateUpdate(message.data);
-            } else if (message.type === 'message') {
-                // Socket.io style message
-                this.handleSocketIOMessage(message.data);
-            } else if (message.type === 'authenticated') {
-                this.handleAuthenticated(message.data);
-            } else if (message.type === 'venueChanged') {
-                this.handleVenueChanged(message.data);
-            } else if (message.type === 'commandResponse') {
-                this.handleCommandResponse(message.data);
-            } else {
-                this.log(`Received unknown message type: ${message.type}`, 'info');
-            }
-            
-        } catch (error) {
-            this.log(`Error parsing message: ${error.message}`, 'error');
-        }
-    }
+
     
     /**
      * Handle initial state from server
