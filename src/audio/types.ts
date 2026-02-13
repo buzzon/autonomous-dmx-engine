@@ -19,6 +19,8 @@ export interface AudioMetrics {
   mood: Mood;          // Rough mood classification
   spectralCentroid?: number;  // 0..1, brightness of sound
   spectralFlux?: number;      // Spectral change rate
+  spectralRolloff?: number;   // 0..1, frequency where 85% of energy is contained
+  spectralFlatness?: number;  // 0..1, noisiness vs tonalness (0 = tonal, 1 = noisy)
   zeroCrossingRate?: number;  // 0..1, noisiness
 }
 
