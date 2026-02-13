@@ -247,6 +247,7 @@ export class LightingFacade {
       transitionTime: 100,
       limitRateOfChange: true,
       maxChangePerFrame: 0.1,
+      artNet: config.artNet,
     });
 
     this.logger.info("LightingFacade initialized", { config });
@@ -302,6 +303,17 @@ export class LightingFacade {
 
       // 2. Получение финальных состояний
       const finalStates = this.attributeManager.getAll();
+
+      // 2.5 Apply overrides from Brain (Audio Reactive Effects)
+      if (brainOutput.fixtureOverrides) {
+        brainOutput.fixtureOverrides.forEach((override, fixtureId) => {
+          const state = finalStates.get(fixtureId);
+          if (state) {
+            // Apply override directly to the state used for rendering
+            Object.assign(state, override);
+          }
+        });
+      }
 
       // 3. Рендеринг DMX с использованием нового DMX Renderer
       const universeFrames = this.config.enableDMXOutput

@@ -7,11 +7,11 @@
  * Channel definition for a fixture profile
  */
 export interface ChannelDefinition {
-  name: string;        // 'dim', 'pan', 'tilt', 'colorIndex', etc.
-  type: 'dim' | 'position' | 'color' | 'strobe' | 'other';
-  channelIndex: number;  // 1-based (DMX channel)
+  name: string; // 'dim', 'pan', 'tilt', 'colorIndex', etc.
+  type: "dim" | "position" | "color" | "strobe" | "other";
+  channelIndex: number; // 1-based (DMX channel)
   fineChannelIndex?: number;
-  range?: [number, number];  // DMX range for this value
+  range?: [number, number]; // DMX range for this value
   defaultValue?: number;
 }
 
@@ -23,9 +23,9 @@ export interface FixtureProfile {
   name: string;
   manufacturer: string;
   channels: ChannelDefinition[];
-  colorMap?: { [index: number]: number };  // colorIndex -> DMX value
-  goboMap?: { [index: number]: number };   // goboIndex -> DMX value
-  capabilities: string[];  // ['dim', 'color', 'position', 'strobe', 'gobo']
+  colorMap?: { [index: number]: number }; // colorIndex -> DMX value
+  goboMap?: { [index: number]: number }; // goboIndex -> DMX value
+  capabilities: string[]; // ['dim', 'color', 'position', 'strobe', 'gobo']
 }
 
 /**
@@ -35,14 +35,14 @@ export interface FixtureInstance {
   id: string;
   name: string;
   universe: number;
-  startAddress: number;  // 1-based
+  startAddress: number; // 1-based
   profileId: string;
   groupId: string;
-  x?: number;  // Position in layout
+  x?: number; // Position in layout
   y?: number;
   z?: number;
-  zone?: string;  // 'front', 'back', 'left', 'right', etc.
-  rotation?: number;  // Degrees
+  zone?: string; // 'front', 'back', 'left', 'right', etc.
+  rotation?: number; // Degrees
 }
 
 /**
@@ -50,19 +50,19 @@ export interface FixtureInstance {
  */
 export interface FixtureState {
   fixtureId: string;
-  dim: number;         // 0..1
+  dim: number; // 0..1
   colorIndex: number;
-  panNorm: number;     // -1..1 (normalized)
-  tiltNorm: number;    // -1..1 (normalized)
-  strobe: number;      // 0..1
+  panNorm: number; // -1..1 (normalized)
+  tiltNorm: number; // -1..1 (normalized)
+  strobe: number; // 0..1
   goboIndex: number;
-  focus?: number;      // 0..1
-  zoom?: number;       // 0..1
-  iris?: number;       // 0..1
-  frost?: number;      // 0..1
-  prism?: number;      // 0..1
-  shutter?: number;    // 0..1
-  timestamp: number;   // When this state was last updated
+  focus?: number; // 0..1
+  zoom?: number; // 0..1
+  iris?: number; // 0..1
+  frost?: number; // 0..1
+  prism?: number; // 0..1
+  shutter?: number; // 0..1
+  timestamp: number; // When this state was last updated
 }
 
 /**
@@ -70,7 +70,7 @@ export interface FixtureState {
  */
 export interface UniverseFrame {
   universe: number;
-  data: Uint8Array;  // 512 bytes
+  data: Uint8Array; // 512 bytes
   timestamp: number;
 }
 
@@ -79,8 +79,8 @@ export interface UniverseFrame {
  */
 export interface DMXChannel {
   universe: number;
-  channel: number;  // 1-based
-  value: number;    // 0-255
+  channel: number; // 1-based
+  value: number; // 0-255
   timestamp: number;
 }
 
@@ -91,7 +91,7 @@ export interface ArtNetConfig {
   host: string;
   port: number;
   universe: number;
-  refreshRate: number;  // Hz
+  refreshRate: number; // Hz
 }
 
 /**
@@ -99,8 +99,8 @@ export interface ArtNetConfig {
  */
 export interface PatchConfig {
   fixtures: FixtureInstance[];
-  groups: Record<string, string[]>;  // groupId -> fixtureIds
-  universes: Record<number, number[]>;  // universe -> fixtureIds
+  groups: Record<string, string[]>; // groupId -> fixtureIds
+  universes: Record<number, number[]>; // universe -> fixtureIds
 }
 
 /**
@@ -115,33 +115,36 @@ export interface LayoutConfig {
     zone?: string;
     rotation?: number;
   }>;
-  zones: Record<string, {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    depth?: number;
-  }>;
+  zones: Record<
+    string,
+    {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      depth?: number;
+    }
+  >;
 }
 
 /**
  * Merge rules for combining attribute layers
  */
 export interface MergeRules {
-  priority: Array<'base' | 'effects' | 'overrides'>;
+  priority: Array<"base" | "effects" | "overrides">;
   blendModes: {
-    dim: 'multiply' | 'add' | 'max' | 'replace';
-    color: 'replace' | 'add' | 'average';
-    position: 'replace' | 'average' | 'weighted';
+    dim: "multiply" | "add" | "max" | "replace";
+    color: "replace" | "add" | "average";
+    position: "replace" | "average" | "weighted";
   };
-  globalDim: number;  // 0..1
+  globalDim: number; // 0..1
   blackout: boolean;
 }
 
 /**
  * Attribute layer type
  */
-export type AttributeLayer = 'base' | 'effects' | 'overrides' | 'manual';
+export type AttributeLayer = "base" | "effects" | "overrides" | "manual";
 
 /**
  * Layer state
@@ -170,9 +173,10 @@ export interface DMXRenderingOptions {
   applyGammaCorrection: boolean;
   gamma: number;
   smoothTransitions: boolean;
-  transitionTime: number;  // ms
+  transitionTime: number; // ms
   limitRateOfChange: boolean;
   maxChangePerFrame: number;
+  artNet?: ArtNetConfig; // Optional ArtNet configuration
 }
 
 /**
@@ -182,7 +186,7 @@ export interface FixtureGroup {
   id: string;
   name: string;
   fixtureIds: string[];
-  type: 'beam' | 'wash' | 'spot' | 'hybrid';
+  type: "beam" | "wash" | "spot" | "hybrid";
   capabilities: string[];
   center?: { x: number; y: number; z?: number };
   bounds?: { minX: number; maxX: number; minY: number; maxY: number };
@@ -194,7 +198,7 @@ export interface FixtureGroup {
 export interface ColorPalette {
   id: string;
   name: string;
-  colors: number[];  // Color indices
+  colors: number[]; // Color indices
   description: string;
 }
 
@@ -206,8 +210,8 @@ export interface StyleDefinition {
   name: string;
   paletteId: string;
   intensityRange: [number, number];
-  movementStyle: 'static' | 'slow' | 'medium' | 'fast';
-  colorStyle: 'mono' | 'complementary' | 'analogous' | 'rainbow';
+  movementStyle: "static" | "slow" | "medium" | "fast";
+  colorStyle: "mono" | "complementary" | "analogous" | "rainbow";
 }
 
 /**

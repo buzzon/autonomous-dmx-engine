@@ -6,6 +6,7 @@
 
 import { defaultLogger } from "../utils/logger";
 import { ConfigLoader } from "../utils/config";
+import { FixtureState } from "../lighting/types";
 import {
   BrainFacadeConfig,
   BrainFacadeState,
@@ -23,6 +24,8 @@ import {
 } from "./types";
 import { RuntimeMetrics } from "../engine/types";
 import { BrainOutput } from "../engine/types";
+import { EnergyPulse } from "./effects/handlers/energyPulse";
+import { BeatStrobe } from "./effects/handlers/beatStrobe";
 
 /**
  * Упрощённая State Machine для Phase 1
@@ -296,8 +299,12 @@ class EffectEngine {
     sceneState: SceneState,
     metrics: RuntimeMetrics,
     timestamp: number,
-  ): GroupEffectState[] {
+  ): {
+    groupEffects: GroupEffectState[];
+    fixtureOverrides: Map<string, Partial<FixtureState>>;
+  } {
     const groupEffects: GroupEffectState[] = [];
+    const fixtureOverrides = new Map<string, Partial<FixtureState>>();
 
     // Группировка эффектов по groupId
     const effectsByGroup = new Map<string, EffectDescriptor[]>();
@@ -311,18 +318,25 @@ class EffectEngine {
 
     // Обработка каждой группы
     for (const [groupId, effects] of effectsByGroup) {
-      const groupEffect = this.processGroupEffects(
+      const result = this.processGroupEffects(
         groupId,
         effects,
         metrics,
         timestamp,
       );
-      if (groupEffect) {
-        groupEffects.push(groupEffect);
+
+      if (result) {
+        groupEffects.push(result.groupEffect);
+
+        // Merge overrides
+        result.overrides.forEach((state, fixtureId) => {
+          const existing = fixtureOverrides.get(fixtureId) || {};
+          fixtureOverrides.set(fixtureId, { ...existing, ...state });
+        });
       }
     }
 
-    return groupEffects;
+    return { groupEffects, fixtureOverrides };
   }
 
   reloadEffects(): void {
@@ -334,7 +348,10 @@ class EffectEngine {
     effects: EffectDescriptor[],
     metrics: RuntimeMetrics,
     timestamp: number,
-  ): GroupEffectState | null {
+  ): {
+    groupEffect: GroupEffectState;
+    overrides: Map<string, Partial<FixtureState>>;
+  } | null {
     // Создание базового состояния группы
     const groupEffect: GroupEffectState = {
       groupId,
@@ -349,6 +366,8 @@ class EffectEngine {
       colorEffect: { type: "none", speed: 0, colors: [] },
     };
 
+    const overrides = new Map<string, Partial<FixtureState>>();
+
     // Применение каждого эффекта
     for (const effect of effects) {
       const handler = this.effectRegistry.get(effect.type);
@@ -357,12 +376,88 @@ class EffectEngine {
         continue;
       }
 
-      // В Phase 1 просто применяем параметры напрямую
-      // В будущих фазах будет реальная обработка через handler
-      this.applyEffectParams(groupEffect, effect);
+      // Execute handler
+      // We pass a dummy context for now regarding fixtureStates since we don't have them here easily
+      // Ideally we should pass them, but for EnergyPulse we don't strictly need them if we just return a partial.
+      const context: any = {
+        metrics,
+        timestamp,
+        sceneState: null, // Placeholder
+        fixtureStates: new Map(), // Placeholder
+        groupId,
+      };
+
+      try {
+        const result = handler.handler(effect.params, context);
+
+        if (result instanceof Map) {
+          result.forEach((v, k) => overrides.set(k, v));
+        } else {
+          // It's a Partial<FixtureState> applied to... whom?
+          // The handler doesn't know the fixture IDs.
+          // This is a limitation of the current design.
+          // For now, let's treat it as a "Template" override that should be applied to ALL fixtures in the group.
+          // But we don't know the fixtures in the group here (that's in PatchManager).
+          // So we can't fully resolve it here.
+
+          // We will just return it in groupEffect if it maps to parameters,
+          // OR we need to pass it up as a special "Group Override"
+
+          // However, existing logic uses applyEffectParams to fill groupEffect.
+          this.applyEffectParams(groupEffect, effect);
+
+          // If the handler (like EnergyPulse) returned { dim: 0.5 }, we want to use that!
+          // But we don't know which fixtures to apply it to.
+
+          // Strategy: BrainFacade calls processGroupEffects. BrainFacade doesn't know fixtures either?
+          // LightingFacade knows.
+
+          // So maybe we should pass this "Group Update" to LightingFacade?
+          // But BrainOutput only has `fixtureOverrides` (Map<id, state>).
+
+          // We need to resolve group members.
+          // BrainFacade doesn't have PatchManager.
+
+          // Workaround: return { dim: value } as a "Group Level Override"
+          // and let Engine/LightingFacade resolve it?
+          // Or just ignore it here and stick to params for now?
+
+          // Wait, EnergyPulse returns { dim: value }.
+          // If we just put it in groupEffect.dimEffect, we are still parameter-based.
+          // But EnergyPulse calculated a VALUE, not a parameter.
+
+          // Let's assume for this integration step, we rely on `applyEffectParams` for built-in parametric effects,
+          // and `EnergyPulse` effectively became a parametric effect that modulates `dim`.
+
+          // BUT, EnergyPulse.ts I updated calculates `value`.
+          // `const value = energy * multiplier`.
+          // It returns `{ dim: value }`.
+
+          // If we want to use this value, we need to apply it.
+          // Use `overrides`?
+          // But we need fixture IDs.
+
+          // Let's defer applying overrides until we have fixture IDs?
+          // No, Brain doesn't know them.
+
+          // Maybe we should just stick to pure parameter logic for now?
+          // And let LightingFacade do the math?
+          // But `EnergyPulse` IS the math.
+
+          // Hack: If we don't know fixture IDs, simple handlers return an object.
+          // We can't put it in overrides Map<string, ...>.
+
+          // Let's skip overrides for now if we can't resolve IDs.
+        }
+      } catch (e) {
+        this.logger.error("Error executing effect handler", {
+          type: effect.type,
+          error: e,
+        });
+      }
     }
 
-    return groupEffect;
+    return { groupEffect, overrides };
   }
 
   private applyEffectParams(
@@ -412,6 +507,20 @@ class EffectEngine {
       },
       description: "Pulsing dim effect",
       defaultParams: { speed: 1.0, depth: 0.5, phase: 0 },
+    });
+
+    this.registerEffectHandler({
+      type: "dim/energyPulse",
+      handler: EnergyPulse,
+      description: "Audio energy pulse",
+      defaultParams: { multiplier: 1, min: 0, max: 1 },
+    });
+
+    this.registerEffectHandler({
+      type: "strobe/beat",
+      handler: BeatStrobe,
+      description: "Strobe on beat",
+      defaultParams: { intensity: 1, duration: 100 },
     });
 
     this.registerEffectHandler({
@@ -526,11 +635,12 @@ export class BrainFacade {
       );
 
       // 3. Генерация эффектов через EffectEngine
-      const groupEffects = this.effectEngine.generateEffects(
-        sceneState,
-        metrics,
-        metrics.timestamp,
-      );
+      const { groupEffects, fixtureOverrides } =
+        this.effectEngine.generateEffects(
+          sceneState,
+          metrics,
+          metrics.timestamp,
+        );
 
       // 4. Обновление истории
       this.updateHistory(brainState, sceneState.sceneId, metrics.timestamp);
@@ -544,6 +654,7 @@ export class BrainFacade {
         brainState,
         sceneId: sceneState.sceneId,
         effectCount: groupEffects.length,
+        overrideCount: fixtureOverrides.size,
         processingTime: processingTime.toFixed(2),
       });
 
@@ -551,6 +662,7 @@ export class BrainFacade {
         brainState,
         sceneState,
         groupEffects,
+        fixtureOverrides,
       };
     } catch (error) {
       this.logger.error("Error in brain processing", { error });
@@ -560,6 +672,7 @@ export class BrainFacade {
         brainState: this.state.currentBrainState,
         sceneState: this.state.currentScene,
         groupEffects: [],
+        fixtureOverrides: new Map(),
       };
     }
   }

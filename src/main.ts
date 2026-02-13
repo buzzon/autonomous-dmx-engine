@@ -14,6 +14,7 @@ import path from "path";
 import { defaultLogger } from "./utils/logger";
 import { defaultConfigLoader } from "./utils/config";
 import { AudioAnalyzer } from "./audio/analyzer";
+import { MicAudioSource } from "./audio/sources/mic-source";
 import { BrainFacade } from "./brain/facade";
 import { LightingFacade } from "./lighting/facade";
 import { WebSocketAPI } from "./control/websocket";
@@ -62,6 +63,11 @@ async function main() {
       moodBpmThresholdLow: 80,
       moodBpmThresholdHigh: 140,
     });
+
+    // Initialize Microphone Source
+    const micSource = new MicAudioSource(audioAnalyzer);
+    micSource.start();
+    logger.info("Microphone source started");
 
     // Brain Facade
     const brainFacade = new BrainFacade({

@@ -15373,7 +15373,7 @@ Object.assign(lookup2, {
   connect: lookup2
 });
 
-// src/control/webui/imgui/main.ts
+// src/control/webui/main.ts
 var socket;
 var isConnected = false;
 var systemState = {};

@@ -3,18 +3,18 @@
  * Core types for the main facade and processing loops
  */
 
-import { AudioMetrics } from '../audio/types';
-import { BrainState, SceneState, GroupEffectState } from '../brain/types';
-import { FixtureState, UniverseFrame } from '../lighting/types';
+import { AudioMetrics } from "../audio/types";
+import { BrainState, SceneState, GroupEffectState } from "../brain/types";
+import { FixtureState, UniverseFrame } from "../lighting/types";
 
 /**
  * Engine configuration
  */
 export interface EngineConfig {
-  fastTickInterval: number;    // 40ms
-  slowTickInterval: number;    // 500-1000ms
+  fastTickInterval: number; // 40ms
+  slowTickInterval: number; // 500-1000ms
   enableHotReload: boolean;
-  maxFastLoopTime: number;     // Maximum allowed processing time for fast loop (ms)
+  maxFastLoopTime: number; // Maximum allowed processing time for fast loop (ms)
 }
 
 /**
@@ -22,8 +22,8 @@ export interface EngineConfig {
  */
 export interface RuntimeMetrics {
   audio: AudioMetrics;
-  vision?: VisionMetrics;      // For future expansion
-  sensors?: SensorMetrics;     // For future expansion
+  vision?: VisionMetrics; // For future expansion
+  sensors?: SensorMetrics; // For future expansion
   timestamp: number;
 }
 
@@ -34,6 +34,7 @@ export interface BrainOutput {
   brainState: BrainState;
   sceneState: SceneState;
   groupEffects: GroupEffectState[];
+  fixtureOverrides?: Map<string, Partial<FixtureState>>;
 }
 
 /**
@@ -49,7 +50,7 @@ export interface LightingOutput {
  */
 export interface SystemState {
   mode: SystemMode;
-  globalIntensity: number;  // 0..1
+  globalIntensity: number; // 0..1
   blackout: boolean;
   activeStyleId?: string;
 }
@@ -57,7 +58,7 @@ export interface SystemState {
 /**
  * System mode
  */
-export type SystemMode = 'auto' | 'chill' | 'party' | 'manual';
+export type SystemMode = "auto" | "chill" | "party" | "manual";
 
 /**
  * Performance metrics
@@ -78,7 +79,7 @@ export interface PerformanceMetrics {
  * Health check status
  */
 export interface HealthStatus {
-  overall: 'healthy' | 'degraded' | 'unhealthy';
+  overall: "healthy" | "degraded" | "unhealthy";
   details: HealthCheckResult[];
   timestamp: number;
 }
@@ -113,7 +114,7 @@ export interface SlowToFastBridge {
  * Configuration update
  */
 export interface ConfigUpdate {
-  type: 'scenes' | 'rules' | 'effects' | 'plugins';
+  type: "scenes" | "rules" | "effects" | "plugins";
   path: string;
   timestamp: number;
 }
@@ -123,7 +124,7 @@ export interface ConfigUpdate {
  */
 export interface SceneOverride {
   sceneId: string;
-  duration?: number;  // ms, undefined means until manually changed
+  duration?: number; // ms, undefined means until manually changed
   timestamp: number;
 }
 
@@ -131,8 +132,8 @@ export interface SceneOverride {
  * Vision metrics (for future expansion)
  */
 export interface VisionMetrics {
-  occupancy: number;      // 0..1
-  motionLevel: number;    // 0..1
+  occupancy: number; // 0..1
+  motionLevel: number; // 0..1
   zones: Record<string, number>;
   timestamp: number;
 }
