@@ -140,7 +140,8 @@ class DMXControlUI {
             return;
         }
         
-        const wsUrl = 'ws://localhost:3001/ws';
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
         this.log(`Connecting to ${wsUrl}...`, 'info');
         this.updateConnectionStatus('connecting', 'Connecting...');
         
