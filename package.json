@@ -32,7 +32,12 @@
   },
   "dependencies": {
     "artnet": "^1.4.0",
+    "audio-decode": "^2.2.3",
     "express": "^4.18.0",
-    "socket.io": "^4.6.0"
+    "fft.js": "^4.0.4",
+    "jsonwebtoken": "^9.0.3",
+    "node-microphone": "^0.1.6",
+    "node-web-audio-api": "^1.0.7",
+    "socket.io": "^4.8.3"
   }
 }

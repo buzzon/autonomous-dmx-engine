@@ -6,7 +6,8 @@
 
 import { defaultLogger } from '../utils/logger';
 import { ConfigLoader } from '../utils/config';
-import { 
+import { DMXRenderer } from './renderer';
+import {
   LightingFacadeConfig,
   FixtureProfile,
   FixtureInstance,
@@ -102,6 +103,10 @@ class PatchManager {
 
   getAllUniverses(): number[] {
     return Array.from(this.universes.keys());
+  }
+
+  getAllProfiles(): Map<string, FixtureProfile> {
+    return new Map(this.profiles);
   }
 }
 
@@ -201,111 +206,6 @@ class AttributeManager {
   }
 }
 
-/**
- * Упрощённый DMX Renderer для Phase 1
- */
-class DMXRenderer {
-  private logger = defaultLogger.child({ module: 'DMXRenderer' });
-  private options: DMXRenderingOptions;
-  private statistics: RenderStatistics = {
-    framesRendered: 0,
-    averageRenderTime: 0,
-    dmxPacketsSent: 0,
-    lastRenderTime: 0,
-    fixtureCount: 0,
-    universeCount: 0
-  };
-
-  constructor(options: DMXRenderingOptions) {
-    this.options = options;
-    this.logger.info('DMXRenderer initialized', { options });
-  }
-
-  renderToDMX(fixtureStates: Map<string, FixtureState>, patchManager: PatchManager): UniverseFrame[] {
-    const startTime = performance.now();
-    const universeFrames: UniverseFrame[] = [];
-    
-    // Получение всех universe
-    const universes = patchManager.getAllUniverses();
-    
-    universes.forEach(universe => {
-      const fixtureIds = patchManager.getFixturesInUniverse(universe);
-      const frameData = new Uint8Array(512); // 512 DMX каналов
-      
-      fixtureIds.forEach(fixtureId => {
-        const fixture = patchManager.getFixture(fixtureId);
-        const state = fixtureStates.get(fixtureId);
-        
-        if (!fixture || !state) {
-          return;
-        }
-        
-        // В Phase 1 упрощённый рендеринг
-        // В будущих фазах будет реальное преобразование атрибутов в DMX значения
-        this.renderFixtureToDMX(fixture, state, frameData);
-      });
-      
-      universeFrames.push({
-        universe,
-        data: frameData,
-        timestamp: Date.now()
-      });
-    });
-    
-    // Обновление статистики
-    const renderTime = performance.now() - startTime;
-    this.updateStatistics(renderTime, universeFrames.length);
-    
-    this.logger.debug('DMX rendering complete', {
-      universeCount: universeFrames.length,
-      renderTime: renderTime.toFixed(2)
-    });
-    
-    return universeFrames;
-  }
-
-  private renderFixtureToDMX(fixture: FixtureInstance, state: FixtureState, frameData: Uint8Array): void {
-    // Упрощённый рендеринг для Phase 1
-    // Просто устанавливаем dim канал для демонстрации
-    const dimChannel = fixture.startAddress - 1; // 0-based index
-    const dimValue = Math.floor(state.dim * 255);
-    
-    if (dimChannel >= 0 && dimChannel < 512) {
-      frameData[dimChannel] = dimValue;
-    }
-    
-    // В Phase 1 игнорируем остальные атрибуты
-    // В будущих фазах будет полная поддержка всех каналов
-  }
-
-  private updateStatistics(renderTime: number, universeCount: number): void {
-    this.statistics.framesRendered++;
-    this.statistics.lastRenderTime = renderTime;
-    
-    // Обновление среднего времени рендеринга
-    this.statistics.averageRenderTime = 
-      (this.statistics.averageRenderTime * (this.statistics.framesRendered - 1) + renderTime) / 
-      this.statistics.framesRendered;
-    
-    this.statistics.dmxPacketsSent += universeCount;
-  }
-
-  getStatistics(): RenderStatistics {
-    return { ...this.statistics };
-  }
-
-  resetStatistics(): void {
-    this.statistics = {
-      framesRendered: 0,
-      averageRenderTime: 0,
-      dmxPacketsSent: 0,
-      lastRenderTime: 0,
-      fixtureCount: 0,
-      universeCount: 0
-    };
-    this.logger.info('DMX render statistics reset');
-  }
-}
 
 /**
  * LightingFacade - главный фасад модуля Lighting
@@ -393,9 +293,9 @@ export class LightingFacade {
       // 2. Получение финальных состояний
       const finalStates = this.attributeManager.getAll();
       
-      // 3. Рендеринг DMX (mock для Phase 1)
+      // 3. Рендеринг DMX с использованием нового DMX Renderer
       const universeFrames = this.config.enableDMXOutput
-        ? this.dmxRenderer.renderToDMX(finalStates, this.patchManager)
+        ? this.dmxRenderer.renderToDMX(finalStates, this.patchManager, this.patchManager.getAllProfiles())
         : [];
       
       const processingTime = performance.now() - startTime;
