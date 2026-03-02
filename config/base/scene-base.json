@@ -1,0 +1,23 @@
+{
+  "scenes": [
+    {
+      "id": "base-scene",
+      "name": "Base Scene Template",
+      "allowedStates": ["Idle", "Chill", "Party"],
+      "paletteId": "neutral",
+      "baseIntensity": 0.5,
+      "effectDescriptors": [
+        {
+          "type": "dim/none",
+          "groupId": "BEAMS",
+          "params": {}
+        },
+        {
+          "type": "pos/none",
+          "groupId": "BEAMS",
+          "params": {}
+        }
+      ]
+    }
+  ]
+}

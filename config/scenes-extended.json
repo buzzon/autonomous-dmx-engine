@@ -1,0 +1,22 @@
+{
+  "extends": "./base/scene-base.json",
+  "scenes": [
+    {
+      "id": "ExtendedScene",
+      "name": "Extended Scene Example",
+      "allowedStates": ["Party"],
+      "paletteId": "vibrant",
+      "baseIntensity": 0.8,
+      "effectDescriptors": [
+        {
+          "type": "dim/pulse",
+          "groupId": "BEAMS",
+          "params": {
+            "speed": 2.0,
+            "depth": 0.9
+          }
+        }
+      ]
+    }
+  ]
+}
