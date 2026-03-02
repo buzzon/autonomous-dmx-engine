@@ -11,6 +11,8 @@
     "test:integration": "jest tests/integration",
     "test:e2e": "playwright test",
     "build:ui": "esbuild src/control/webui/main.ts --bundle --outfile=src/control/webui/main.js --format=esm",
+    "ui:dev": "cd src/control/webui && npm run dev",
+    "ui:build": "cd src/control/webui && npm run build",
     "lint": "eslint src/**/*.ts"
   },
   "keywords": [
