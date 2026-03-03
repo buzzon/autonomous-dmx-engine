@@ -5,6 +5,7 @@
 
 import { UISystemState, AudioMetrics, SocketState } from '../types/ui';
 import { SystemMode } from '../../../engine/types';
+import { SceneDefinition, EffectDescriptor, SceneRule } from '../../../brain/types';
 
 export interface AppState {
   system: UISystemState;
@@ -14,8 +15,42 @@ export interface AppState {
     theme: 'dark' | 'light';
     layout: 'compact' | 'expanded' | 'dashboard';
     showDebug: boolean;
-    currentPage: 'home' | 'audio' | 'dmx' | 'scenes' | 'settings';
+    currentPage: 'home' | 'audio' | 'dmx' | 'scenes' | 'effects' | 'fixtures' | 'rules' | 'settings';
     sidebarCollapsed: boolean;
+  };
+  
+  // Editor state
+  editor: {
+    // Scene editor
+    currentScene: SceneDefinition | null;
+    sceneDirty: boolean;
+    sceneHistory: SceneDefinition[];
+    
+    // Effect editor
+    currentEffect: EffectDescriptor | null;
+    effectDirty: boolean;
+    
+    // Fixture manager
+    currentPatch: any | null;
+    patchDirty: boolean;
+    
+    // Rule editor
+    currentRule: SceneRule | null;
+    rulesDirty: boolean;
+    
+    // Undo/redo state
+    canUndo: boolean;
+    canRedo: boolean;
+    lastSaveTime: number;
+    
+    // Drag and drop
+    isDragging: boolean;
+    dragPayload: any | null;
+    
+    // Preview state
+    previewActive: boolean;
+    previewSceneId: string | null;
+    previewTime: number;
   };
   
   // Real-time data
@@ -83,6 +118,31 @@ class Store {
         showDebug: false,
         currentPage: 'home',
         sidebarCollapsed: false,
+      },
+      editor: {
+        currentScene: null,
+        sceneDirty: false,
+        sceneHistory: [],
+        
+        currentEffect: null,
+        effectDirty: false,
+        
+        currentPatch: null,
+        patchDirty: false,
+        
+        currentRule: null,
+        rulesDirty: false,
+        
+        canUndo: false,
+        canRedo: false,
+        lastSaveTime: 0,
+        
+        isDragging: false,
+        dragPayload: null,
+        
+        previewActive: false,
+        previewSceneId: null,
+        previewTime: 0,
       },
       realtime: {
         audioData: {
@@ -281,6 +341,157 @@ class Store {
       });
     }
   }
+
+  // Editor methods
+  setCurrentScene(scene: SceneDefinition | null): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        currentScene: scene,
+        sceneDirty: scene !== null,
+      },
+    });
+  }
+
+  setSceneDirty(dirty: boolean): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        sceneDirty: dirty,
+      },
+    });
+  }
+
+  setCurrentEffect(effect: EffectDescriptor | null): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        currentEffect: effect,
+        effectDirty: effect !== null,
+      },
+    });
+  }
+
+  setEffectDirty(dirty: boolean): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        effectDirty: dirty,
+      },
+    });
+  }
+
+  setCurrentPatch(patch: any | null): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        currentPatch: patch,
+        patchDirty: patch !== null,
+      },
+    });
+  }
+
+  setPatchDirty(dirty: boolean): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        patchDirty: dirty,
+      },
+    });
+  }
+
+  setCurrentRule(rule: SceneRule | null): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        currentRule: rule,
+        rulesDirty: rule !== null,
+      },
+    });
+  }
+
+  setRulesDirty(dirty: boolean): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        rulesDirty: dirty,
+      },
+    });
+  }
+
+  setUndoState(canUndo: boolean, canRedo: boolean): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        canUndo,
+        canRedo,
+      },
+    });
+  }
+
+  setDragState(isDragging: boolean, payload: any = null): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        isDragging,
+        dragPayload: payload,
+      },
+    });
+  }
+
+  setPreviewState(active: boolean, sceneId: string | null = null, time: number = 0): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        previewActive: active,
+        previewSceneId: sceneId,
+        previewTime: time,
+      },
+    });
+  }
+
+  saveEditorState(): void {
+    this.setState({
+      editor: {
+        ...this.state.editor,
+        sceneDirty: false,
+        effectDirty: false,
+        patchDirty: false,
+        rulesDirty: false,
+        lastSaveTime: Date.now(),
+      },
+    });
+  }
+
+  resetEditorState(): void {
+    this.setState({
+      editor: {
+        currentScene: null,
+        sceneDirty: false,
+        sceneHistory: [],
+        
+        currentEffect: null,
+        effectDirty: false,
+        
+        currentPatch: null,
+        patchDirty: false,
+        
+        currentRule: null,
+        rulesDirty: false,
+        
+        canUndo: false,
+        canRedo: false,
+        lastSaveTime: 0,
+        
+        isDragging: false,
+        dragPayload: null,
+        
+        previewActive: false,
+        previewSceneId: null,
+        previewTime: 0,
+      },
+    });
+  }
 }
 
 // Singleton store instance
@@ -322,4 +533,29 @@ export const selectors = {
     const sum = channels.reduce((a, b) => a + b, 0);
     return sum / channels.length;
   },
+
+  // Editor selectors
+  getCurrentScene: (state: AppState) => state.editor.currentScene,
+  isSceneDirty: (state: AppState) => state.editor.sceneDirty,
+  getCurrentEffect: (state: AppState) => state.editor.currentEffect,
+  isEffectDirty: (state: AppState) => state.editor.effectDirty,
+  getCurrentPatch: (state: AppState) => state.editor.currentPatch,
+  isPatchDirty: (state: AppState) => state.editor.patchDirty,
+  getCurrentRule: (state: AppState) => state.editor.currentRule,
+  isRulesDirty: (state: AppState) => state.editor.rulesDirty,
+  canUndo: (state: AppState) => state.editor.canUndo,
+  canRedo: (state: AppState) => state.editor.canRedo,
+  isDragging: (state: AppState) => state.editor.isDragging,
+  getDragPayload: (state: AppState) => state.editor.dragPayload,
+  isPreviewActive: (state: AppState) => state.editor.previewActive,
+  getPreviewSceneId: (state: AppState) => state.editor.previewSceneId,
+  getPreviewTime: (state: AppState) => state.editor.previewTime,
+  getLastSaveTime: (state: AppState) => state.editor.lastSaveTime,
+  
+  // Combined dirty state
+  isAnyEditorDirty: (state: AppState) =>
+    state.editor.sceneDirty ||
+    state.editor.effectDirty ||
+    state.editor.patchDirty ||
+    state.editor.rulesDirty,
 };

@@ -13,7 +13,19 @@
     "build:ui": "esbuild src/control/webui/main.ts --bundle --outfile=src/control/webui/main.js --format=esm",
     "ui:dev": "cd src/control/webui && npm run dev",
     "ui:build": "cd src/control/webui && npm run build",
-    "lint": "eslint src/**/*.ts"
+    "lint": "eslint src/**/*.ts",
+    
+    "phase3:dev": "cd src/control/webui && vite",
+    "phase3:build": "cd src/control/webui && vite build",
+    "phase3:preview": "cd src/control/webui && vite preview",
+    "phase3:analyze": "cd src/control/webui && npx vite-bundle-analyzer",
+    "phase3:test": "cd src/control/webui && npm test",
+    "phase3:test:e2e": "cd src/control/webui && npx playwright test",
+    "phase3:lint": "cd src/control/webui && npm run lint",
+    "phase3:type-check": "cd src/control/webui && npx tsc --noEmit",
+    "phase3:performance": "node scripts/performance-test.js",
+    "phase3:docs": "cd src/control/webui/docs && npx serve",
+    "phase3:audit": "npx lighthouse http://localhost:3000 --output=json --output-path=./lighthouse-report.json"
   },
   "keywords": [
     "dmx",

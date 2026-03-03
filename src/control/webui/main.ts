@@ -1,16 +1,15 @@
 /**
  * Main entry point for Phase 3 Dashboard
  * Расширенный dashboard для аудио визуализации и DMX мониторинга
+ * Интегрирует все компоненты Phase 3 через App компонент
  */
 
 import { ImGui, ImGui_Impl } from "@zhobo63/imgui-ts";
 import { store, selectors } from './store/store';
+import { extendedStore } from './store/store-extended';
 import { socketManager } from './utils/socket';
 import { performanceMonitor } from './utils/performance';
-import { DashboardLayout } from './layouts/DashboardLayout';
-import { DashboardHome } from './pages/DashboardHome';
-import { AudioVisualization } from './pages/AudioVisualization';
-import { DMXMonitor } from './pages/DMXMonitor';
+import { App } from './App';
 
 // Global state
 let lastUpdateTime = 0;
@@ -21,7 +20,7 @@ async function main() {
   await ImGui.default();
   ImGui.CHECKVERSION();
   console.log("ImGui Version:", ImGui.VERSION);
-  console.log("Phase 3 Dashboard Initialized");
+  console.log("Phase 3 Dashboard Initialized - Full Integration");
 
   ImGui.CreateContext();
   ImGui.StyleColorsDark();
@@ -86,7 +85,7 @@ function loop(time: number) {
   // Start render timing
   performanceMonitor.startRender();
 
-  // Draw UI
+  // Draw UI using App component
   drawUI();
 
   ImGui.EndFrame();
@@ -159,204 +158,16 @@ function updateRealTimeData(time: number) {
 }
 
 function drawUI() {
-  const state = store.getState();
-  const currentPage = selectors.getCurrentPage(state);
-  
-  // Apply theme
-  if (state.ui.theme === 'dark') {
-    ImGui.StyleColorsDark();
-  } else {
-    ImGui.StyleColorsLight();
-  }
-  
-  // Render based on layout mode
-  switch (state.ui.layout) {
-    case 'dashboard':
-      renderDashboardLayout(state, currentPage);
-      break;
-    case 'expanded':
-      renderExpandedLayout(state, currentPage);
-      break;
-    case 'compact':
-    default:
-      renderCompactLayout(state, currentPage);
-      break;
-  }
+  // Use App component for rendering
+  App({
+    onCommand: sendCommand,
+    onNavigate: handleNavigation
+  });
   
   // Debug panel if enabled
+  const state = store.getState();
   if (state.ui.showDebug) {
     renderDebugPanel(state);
-  }
-}
-
-function renderDashboardLayout(state: any, currentPage: string) {
-  // Use the new DashboardLayout component
-  DashboardLayout({
-    systemState: state.system,
-    audioMetrics: state.audio,
-    onCommand: sendCommand,
-    onNavigate: handleNavigation,
-    currentPage
-  });
-}
-
-function renderExpandedLayout(state: any, currentPage: string) {
-  // Expanded layout with more space
-  ImGui.SetNextWindowPos(new ImGui.ImVec2(0, 0), ImGui.Cond.Always);
-  ImGui.SetNextWindowSize(new ImGui.ImVec2(ImGui.GetIO().DisplaySize.x, ImGui.GetIO().DisplaySize.y), ImGui.Cond.Always);
-  
-  ImGui.Begin("Expanded Dashboard", null, 
-    ImGui.WindowFlags.NoTitleBar | 
-    ImGui.WindowFlags.NoResize | 
-    ImGui.WindowFlags.NoMove |
-    ImGui.WindowFlags.NoBringToFrontOnFocus
-  );
-  
-  // Render page content
-  renderPageContent(currentPage, state);
-  
-  ImGui.End();
-}
-
-function renderCompactLayout(state: any, currentPage: string) {
-  // Compact layout for smaller screens
-  ImGui.SetNextWindowPos(new ImGui.ImVec2(10, 10), ImGui.Cond.FirstUseEver);
-  ImGui.SetNextWindowSize(new ImGui.ImVec2(800, 600), ImGui.Cond.FirstUseEver);
-  
-  ImGui.Begin("DMX Engine Control");
-  
-  // Simple header
-  const isConnected = selectors.isConnected(state);
-  if (isConnected) {
-    ImGui.TextColored(new ImGui.ImVec4(0, 1, 0, 1), "Connected");
-  } else {
-    ImGui.TextColored(new ImGui.ImVec4(1, 0, 0, 1), "Disconnected");
-  }
-  
-  ImGui.SameLine();
-  ImGui.Text(` | Page: ${currentPage} | Layout: ${state.ui.layout}`);
-  
-  // Page navigation buttons
-  const pages = ['home', 'audio', 'dmx', 'scenes', 'settings'];
-  for (const page of pages) {
-    if (ImGui.Button(page)) {
-      handleNavigation(page);
-    }
-    ImGui.SameLine();
-  }
-  
-  ImGui.NewLine();
-  
-  // Render page content
-  renderPageContent(currentPage, state);
-  
-  ImGui.End();
-}
-
-function renderPageContent(page: string, state: any) {
-  switch (page) {
-    case 'home':
-      DashboardHome({ onNavigate: handleNavigation });
-      break;
-    case 'audio':
-      AudioVisualization({ onNavigate: handleNavigation });
-      break;
-    case 'dmx':
-      DMXMonitor({ onNavigate: handleNavigation });
-      break;
-    case 'scenes':
-      // SceneManager would be implemented here
-      ImGui.Text("Scene Manager - To be implemented");
-      break;
-    case 'settings':
-      // Settings would be implemented here
-      renderSettingsPage(state);
-      break;
-    default:
-      ImGui.Text(`Unknown page: ${page}`);
-      break;
-  }
-}
-
-function renderSettingsPage(state: any) {
-  if (ImGui.CollapsingHeader("UI Settings", ImGui.TreeNodeFlags.DefaultOpen)) {
-    // Theme selection
-    ImGui.Text("Theme:");
-    ImGui.SameLine();
-    if (ImGui.Button(state.ui.theme === 'dark' ? "Dark" : "Light")) {
-      store.toggleTheme();
-    }
-    
-    // Layout selection
-    ImGui.Text("Layout:");
-    ImGui.SameLine();
-    const layouts = ['compact', 'expanded', 'dashboard'];
-    for (const layout of layouts) {
-      if (ImGui.Button(layout)) {
-        store.setLayout(layout as any);
-      }
-      ImGui.SameLine();
-    }
-    
-    // Debug panel toggle
-    ImGui.Text("Debug Panel:");
-    ImGui.SameLine();
-    if (ImGui.Button(state.ui.showDebug ? "Hide" : "Show")) {
-      store.toggleDebug();
-    }
-  }
-  
-  if (ImGui.CollapsingHeader("System Settings")) {
-    // System mode
-    ImGui.Text("System Mode:");
-    const mode = selectors.getMode(state);
-    
-    if (ImGui.Button("Auto")) sendCommand('setMode', 'auto');
-    ImGui.SameLine();
-    if (ImGui.Button("Manual")) sendCommand('setMode', 'manual');
-    ImGui.SameLine();
-    if (ImGui.Button("Off")) sendCommand('setMode', 'off');
-    
-    ImGui.Text(`Current mode: ${mode}`);
-    
-    // Intensity control
-    const intensity = selectors.getIntensity(state);
-    const intensityArr = [intensity];
-    if (ImGui.SliderFloat("Global Intensity", intensityArr as any, 0, 1, "%.2f")) {
-      store.setIntensity(intensityArr[0]);
-      sendCommand('setIntensity', intensityArr[0]);
-    }
-    
-    // Blackout control
-    const isBlackout = selectors.isBlackout(state);
-    if (isBlackout) {
-      if (ImGui.Button("Restore Output")) {
-        sendCommand('setBlackout', false);
-      }
-    } else {
-      if (ImGui.Button("BLACKOUT")) {
-        sendCommand('setBlackout', true);
-      }
-    }
-  }
-  
-  if (ImGui.CollapsingHeader("Connection Settings")) {
-    const socketState = state.socket;
-    
-    ImGui.Text(`Status: ${socketState.isConnected ? 'Connected' : 'Disconnected'}`);
-    if (socketState.latency) {
-      ImGui.Text(`Latency: ${socketState.latency}ms`);
-    }
-    
-    if (ImGui.Button("Reconnect")) {
-      socketManager.connect();
-    }
-    
-    ImGui.SameLine();
-    
-    if (ImGui.Button("Disconnect")) {
-      socketManager.disconnect();
-    }
   }
 }
 
@@ -449,10 +260,12 @@ document.addEventListener("DOMContentLoaded", main);
 // Export for debugging
 (window as any).DMXEngine = {
   store,
+  extendedStore,
   socketManager,
   ImGui,
   sendCommand,
-  handleNavigation
+  handleNavigation,
+  App
 };
 
-console.log("Phase 3 Dashboard loaded successfully");
+console.log("Phase 3 Dashboard loaded successfully - Full Integration Complete");
